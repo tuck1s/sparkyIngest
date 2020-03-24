@@ -1,0 +1,19 @@
+language: python
+python:
+  - "3.7"
+
+# command to install dependencies
+install:
+  - pip install pipenv
+  - pipenv install
+
+before_script:
+  -
+
+script:
+  # basic tests - command line tool installed and gives help/usage
+  - ./send_to_ingest.py
+
+branches:
+  only:
+    - master

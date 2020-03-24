@@ -3,11 +3,16 @@
 
 Example code for uploading events to the [SparkPost Ingest API](https://developers.sparkpost.com/api/events-ingest/):
 
-- Bounce
+Sequence
+- Injection
+- Delivery
+- Initial_open
 - Open
 - Click
 
-(more to follow).
+Sequence
+- Injection
+- Bounce
 
 ## Usage
 
