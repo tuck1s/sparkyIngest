@@ -23,19 +23,31 @@ def uniq_recip_localpart():
     return u
 
 
-def make_open_event(msg_from, friendly_from, rcpt_to, uniq_msg_id, campaign_id, subject, geo_ip, sending_ip):
+# The injection event is internally of type "reception"
+def make_injection_event(msg_from, friendly_from, rcpt_to, uniq_msg_id, campaign_id, subject, sending_ip):
     timestamp = int(time.time())
     e = {
         'msys': {
-            'track_event': {
-                'type': 'open',
-                'delv_method': 'smtp',                     # marked as 'required' in /documentation output
+            'message_event': {
+                'type': 'reception',
+                'binding': 'mta1',
+                'binding_group': 'hot chili',
+                'campaign_id': campaign_id,
+                # custom_message_id?? PowerMTA includes this, different to message_id
                 'event_id': uniq_event_id(),
-                'geo_ip': geo_ip,
+                'friendly_from': friendly_from,
+                'friendly_name': '',
                 'message_id': uniq_msg_id,
+                'msg_from': msg_from,
+                'msg_size': '315',
+                'open_tracking': True,                       # it's important that open_tracking is enabled if you want Signals Health Score to work
                 'rcpt_to': rcpt_to,
+                'recv_method': 'smtp',
+                'routing_domain': rcpt_to.split('@')[1],
+                'sending_ip': sending_ip,
+                # 'rcpt_meta': {'pets' : 'dog'}, # You can include this, PowerMTA does not
+                'subject': subject,
                 'timestamp': str(timestamp),
-                'user_agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_3) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/79.0.3945.130 Safari/537.36',
                 'subaccount_id': 0,
             }
         }
@@ -43,48 +55,7 @@ def make_open_event(msg_from, friendly_from, rcpt_to, uniq_msg_id, campaign_id, 
     return json.dumps(e, indent=None, separators=None) + '\n'
 
 
-def make_initial_open_event(msg_from, friendly_from, rcpt_to, uniq_msg_id, campaign_id, subject, geo_ip, sending_ip):
-    timestamp = int(time.time())
-    e = {
-        'msys': {
-            'track_event': {
-                'type': 'initial_open',
-                'delv_method': 'smtp',                     # marked as 'required' in /documentation output
-                'event_id': uniq_event_id(),
-                'geo_ip': geo_ip,
-                'message_id': uniq_msg_id,
-                'rcpt_to': rcpt_to,
-                'timestamp': str(timestamp),
-                'user_agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_3) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/79.0.3945.130 Safari/537.36',
-                'subaccount_id': 0,
-            }
-        }
-    }
-    return json.dumps(e, indent=None, separators=None) + '\n'
-
-
-def make_click_event(msg_from, friendly_from, rcpt_to, uniq_msg_id, campaign_id, subject, geo_ip, sending_ip):
-    timestamp = int(time.time())
-    e = {
-        'msys': {
-            'track_event': {
-                'type': 'click',
-                'delv_method': 'smtp',                     # marked as 'required' in /documentation output
-                'event_id': uniq_event_id(),
-                'geo_ip': geo_ip,
-                'message_id': uniq_msg_id,
-                'rcpt_to': rcpt_to,
-                'timestamp': str(timestamp),
-                'target_link_url': 'https://example.com',
-                'user_agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_3) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/79.0.3945.130 Safari/537.36',
-                'subaccount_id': 0,
-            }
-        }
-    }
-    return json.dumps(e, indent=None, separators=None) + '\n'
-
-
-def make_delivery_event(msg_from, friendly_from, rcpt_to, uniq_msg_id, campaign_id, subject, geo_ip, sending_ip):
+def make_delivery_event(msg_from, friendly_from, rcpt_to, uniq_msg_id, campaign_id, subject, sending_ip):
     timestamp = int(time.time())
     e = {
         'msys': {
@@ -116,39 +87,69 @@ def make_delivery_event(msg_from, friendly_from, rcpt_to, uniq_msg_id, campaign_
     return json.dumps(e, indent=None, separators=None) + '\n'
 
 
-# The injection event is internally of type "reception"
-def make_injection_event(msg_from, friendly_from, rcpt_to, uniq_msg_id, campaign_id, subject, geo_ip, sending_ip):
+def make_initial_open_event(rcpt_to, uniq_msg_id, geo_ip):
     timestamp = int(time.time())
     e = {
         'msys': {
-            'message_event': {
-                'type': 'reception',
-                'binding': 'mta1',
-                'binding_group': 'hot chili',
-                'campaign_id': campaign_id,
-                # custom_message_id?? PowerMTA includes this, different to message_id
+            'track_event': {
+                'type': 'initial_open',
+                'delv_method': 'smtp',                     # marked as 'required' in /documentation output
                 'event_id': uniq_event_id(),
-                'friendly_from': friendly_from,
-                'friendly_name': '',
+                'geo_ip': geo_ip,
                 'message_id': uniq_msg_id,
-                'msg_from': msg_from,
-                'msg_size': '315',
-                'open_tracking': True,                       # it's important that open_tracking is enabled if you want Signals Health Score to work
                 'rcpt_to': rcpt_to,
-                'recv_method': 'smtp',
-                'routing_domain': rcpt_to.split('@')[1],
-                'sending_ip': sending_ip,
-                # 'rcpt_meta': {'pets' : 'dog'}, # You can include this, PowerMTA does not
-                'subject': subject,
                 'timestamp': str(timestamp),
+                'user_agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_3) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/79.0.3945.130 Safari/537.36',
                 'subaccount_id': 0,
             }
         }
     }
     return json.dumps(e, indent=None, separators=None) + '\n'
 
+
+def make_open_event(rcpt_to, uniq_msg_id, geo_ip):
+    timestamp = int(time.time())
+    e = {
+        'msys': {
+            'track_event': {
+                'type': 'open',
+                'delv_method': 'smtp',                     # marked as 'required' in /documentation output
+                'event_id': uniq_event_id(),
+                'geo_ip': geo_ip,
+                'message_id': uniq_msg_id,
+                'rcpt_to': rcpt_to,
+                'timestamp': str(timestamp),
+                'user_agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_3) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/79.0.3945.130 Safari/537.36',
+                'subaccount_id': 0,
+            }
+        }
+    }
+    return json.dumps(e, indent=None, separators=None) + '\n'
+
+
+def make_click_event(rcpt_to, uniq_msg_id, geo_ip):
+    timestamp = int(time.time())
+    e = {
+        'msys': {
+            'track_event': {
+                'type': 'click',
+                'delv_method': 'smtp',                     # marked as 'required' in /documentation output
+                'event_id': uniq_event_id(),
+                'geo_ip': geo_ip,
+                'message_id': uniq_msg_id,
+                'rcpt_to': rcpt_to,
+                'timestamp': str(timestamp),
+                'target_link_url': 'https://example.com',
+                'user_agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_3) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/79.0.3945.130 Safari/537.36',
+                'subaccount_id': 0,
+            }
+        }
+    }
+    return json.dumps(e, indent=None, separators=None) + '\n'
+
+
 # Note the bounce event type is "inband" not "bounce"
-def make_bounce_event(msg_from, friendly_from, rcpt_to, uniq_msg_id, campaign_id, subject, geo_ip, sending_ip):
+def make_bounce_event(msg_from, friendly_from, rcpt_to, uniq_msg_id, campaign_id, subject, sending_ip, bounce_code, bounce_reason, bounce_class):
     timestamp = int(time.time())
     e = {
         'msys': {
@@ -156,10 +157,10 @@ def make_bounce_event(msg_from, friendly_from, rcpt_to, uniq_msg_id, campaign_id
                 'type': 'inband',
                 'binding': 'mta1',
                 'binding_group': 'hot chili',
-                'bounce_class': '51',
+                'bounce_class': bounce_class,
                 'campaign_id': campaign_id,
                 # custom_message_id?? PowerMTA includes this, different to message_id
-                'error_code': '550',
+                'error_code': bounce_code,
                 'event_id': uniq_event_id(),
                 'friendly_from': friendly_from,
                 'friendly_name': '',
@@ -168,7 +169,9 @@ def make_bounce_event(msg_from, friendly_from, rcpt_to, uniq_msg_id, campaign_id
                 'msg_size': '',
                 'num_retries': '0',
                 'open_tracking': True,                       # it's important that open_tracking is enabled if you want Signals Health Score to work
-                'raw_reason': 'smtp;550 5.7.1 spam 42',
+                'raw_reason': bounce_reason,
+                'rcpt_to': rcpt_to,
+                'reason': bounce_reason,
                 'recv_method': 'smtp',
                 'routing_domain': rcpt_to.split('@')[1],
                 'sending_ip': sending_ip,
@@ -214,27 +217,42 @@ if __name__ == "__main__":
     sending_ip = '10.0.0.1' # example
 
     events = ''
+    naptime = 2
     for i in range(0, 1):
         # "successful" message sequence
         rcpt_to = uniq_recip_localpart() + '@ingest.thetucks.com'
         uniq_msg_id = uniq_message_id()
-        events += make_injection_event(msg_from, friendly_from, rcpt_to, uniq_msg_id, campaign_id, subject, geo_ip, sending_ip)
-        time.sleep(2)
-        events += make_delivery_event(msg_from, friendly_from, rcpt_to, uniq_msg_id, campaign_id, subject, geo_ip, sending_ip)
-        time.sleep(2)
-        events += make_initial_open_event(msg_from, friendly_from, rcpt_to, uniq_msg_id, campaign_id, subject, geo_ip, sending_ip)
-        time.sleep(2)
-        events += make_open_event(msg_from, friendly_from, rcpt_to, uniq_msg_id, campaign_id, subject, geo_ip, sending_ip)
-        time.sleep(2)
-        events += make_click_event(msg_from, friendly_from, rcpt_to, uniq_msg_id, campaign_id, subject, geo_ip, sending_ip)
+        events += make_injection_event(
+            msg_from=msg_from, friendly_from=friendly_from, rcpt_to=rcpt_to, uniq_msg_id=uniq_msg_id,campaign_id=campaign_id,
+            subject=subject, sending_ip=sending_ip)
+        time.sleep(naptime)
+        events += make_delivery_event(
+            msg_from=msg_from, friendly_from=friendly_from, rcpt_to=rcpt_to, uniq_msg_id=uniq_msg_id,campaign_id=campaign_id,
+            subject=subject, sending_ip=sending_ip)
+        time.sleep(naptime)
+        events += make_initial_open_event(rcpt_to=rcpt_to, uniq_msg_id=uniq_msg_id, geo_ip=geo_ip)
+        time.sleep(naptime)
+        events += make_open_event(rcpt_to=rcpt_to, uniq_msg_id=uniq_msg_id, geo_ip=geo_ip)
+        time.sleep(naptime)
+        events += make_click_event(rcpt_to=rcpt_to, uniq_msg_id=uniq_msg_id, geo_ip=geo_ip)
+        time.sleep(naptime)
 
         # "bounce" message sequence
         rcpt_to = uniq_recip_localpart() + '@ingest.thetucks.com'
         uniq_msg_id = uniq_message_id()
-        events += make_injection_event(msg_from, friendly_from, rcpt_to, uniq_msg_id, campaign_id, subject, geo_ip, sending_ip)
-        time.sleep(2)
-        events += make_bounce_event(msg_from, friendly_from, rcpt_to, uniq_msg_id, campaign_id, subject, geo_ip, sending_ip)
+        bounce_code = '554'
+        bounce_reason = 'smtp;554 5.7.1 Blacklisted by black.uribl.com Contact the postmaster of this domain for resolution.'
+        bounce_class = '51'
+        events += make_injection_event(
+            msg_from=msg_from, friendly_from=friendly_from, rcpt_to=rcpt_to, uniq_msg_id=uniq_msg_id,campaign_id=campaign_id,
+            subject=subject, sending_ip=sending_ip)
+        time.sleep(naptime)
+        events += make_bounce_event(
+            msg_from=msg_from, friendly_from=friendly_from, rcpt_to=rcpt_to, uniq_msg_id=uniq_msg_id,campaign_id=campaign_id,
+            subject=subject, sending_ip=sending_ip,
+            bounce_code=bounce_code, bounce_reason=bounce_reason, bounce_class=bounce_class)
 
+    # Send off the events
     compressed_events = gzip.compress(events.encode('utf-8'))
     print('Uploading {} bytes of gzip event data'.format(len(compressed_events)))
     res = requests.post(url, data=compressed_events, headers=hdrs)
