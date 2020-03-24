@@ -18,7 +18,7 @@ Pre-requistes: `python3`, `pip`, `pipenv`.
 pipenv install
 pipenv shell
 export SPARKPOST_API_KEY=your API key here
-./send_to_ingest.py  
+./send_to_ingest.py
 ```
 
 Look in SparkPost "Events Search" menu and "Reports / Summary" chart.
