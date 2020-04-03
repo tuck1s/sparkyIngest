@@ -23,9 +23,19 @@ def uniq_recip_localpart():
     return u
 
 
+class FakeTimestamp:
+    def __init__(self, begintime, naptime):
+        self.ts = begintime
+        self.naptime = naptime
+
+    def time(self):
+        self.ts += self.naptime                 # increment this so events appear spaced apart
+        return self.ts
+
+
 # The injection event is internally of type "reception"
-def make_injection_event(msg_from, friendly_from, rcpt_to, uniq_msg_id, campaign_id, subject, sending_ip):
-    timestamp = int(time.time())
+def make_injection_event(ts, msg_from, friendly_from, rcpt_to, uniq_msg_id, campaign_id, subject, sending_ip):
+    timestamp = ts.time()
     e = {
         'msys': {
             'message_event': {
@@ -55,8 +65,8 @@ def make_injection_event(msg_from, friendly_from, rcpt_to, uniq_msg_id, campaign
     return json.dumps(e, indent=None, separators=None) + '\n'
 
 
-def make_delivery_event(msg_from, friendly_from, rcpt_to, uniq_msg_id, campaign_id, subject, sending_ip):
-    timestamp = int(time.time())
+def make_delivery_event(ts, msg_from, friendly_from, rcpt_to, uniq_msg_id, campaign_id, subject, sending_ip):
+    timestamp = ts.time()
     e = {
         'msys': {
             'message_event': {
@@ -87,8 +97,8 @@ def make_delivery_event(msg_from, friendly_from, rcpt_to, uniq_msg_id, campaign_
     return json.dumps(e, indent=None, separators=None) + '\n'
 
 
-def make_initial_open_event(rcpt_to, uniq_msg_id, geo_ip):
-    timestamp = int(time.time())
+def make_initial_open_event(ts, rcpt_to, uniq_msg_id, geo_ip):
+    timestamp = ts.time()
     e = {
         'msys': {
             'track_event': {
@@ -107,8 +117,8 @@ def make_initial_open_event(rcpt_to, uniq_msg_id, geo_ip):
     return json.dumps(e, indent=None, separators=None) + '\n'
 
 
-def make_open_event(rcpt_to, uniq_msg_id, geo_ip):
-    timestamp = int(time.time())
+def make_open_event(ts, rcpt_to, uniq_msg_id, geo_ip):
+    timestamp = ts.time()
     e = {
         'msys': {
             'track_event': {
@@ -127,8 +137,8 @@ def make_open_event(rcpt_to, uniq_msg_id, geo_ip):
     return json.dumps(e, indent=None, separators=None) + '\n'
 
 
-def make_click_event(rcpt_to, uniq_msg_id, geo_ip):
-    timestamp = int(time.time())
+def make_click_event(ts, rcpt_to, uniq_msg_id, geo_ip):
+    timestamp = ts.time()
     e = {
         'msys': {
             'track_event': {
@@ -149,8 +159,8 @@ def make_click_event(rcpt_to, uniq_msg_id, geo_ip):
 
 
 # Note the bounce event type is "inband" not "bounce"
-def make_bounce_event(msg_from, friendly_from, rcpt_to, uniq_msg_id, campaign_id, subject, sending_ip, bounce_code, bounce_reason, bounce_class):
-    timestamp = int(time.time())
+def make_bounce_event(ts, msg_from, friendly_from, rcpt_to, uniq_msg_id, campaign_id, subject, sending_ip, bounce_code, bounce_reason, bounce_class):
+    timestamp = ts.time()
     e = {
         'msys': {
             'message_event': {
@@ -184,6 +194,74 @@ def make_bounce_event(msg_from, friendly_from, rcpt_to, uniq_msg_id, campaign_id
     }
     return json.dumps(e, indent=None, separators=None) + '\n'
 
+#
+# Return n repeats of a "successful" event sequence, with time between events
+#
+def makeSuccessEvents(ts, n):
+    msg_from = 'test@bounces.test.sparkpost.com' # aka Envelope From, Return-Path: address
+    friendly_from = 'sp-event-agent@test.sparkpost.com'
+    campaign_id = 'big nice campaign'
+    subject = 'lovely test email'
+    geo_ip = {
+        'country': 'US',
+        'region': 'MD',
+        'city': 'Columbia',
+        'latitude': 39.1749,
+        'longitude': -76.8375,
+        'zip': 21046,
+        'postal_code': '21046',
+    }
+    sending_ip = '10.0.0.1' # example
+
+    events = ''
+    for i in range(0, n):
+        # "successful" message sequence
+        rcpt_to = uniq_recip_localpart() + '@ingest.thetucks.com'
+        uniq_msg_id = uniq_message_id()
+        events += make_injection_event(ts=ts,
+            msg_from=msg_from, friendly_from=friendly_from, rcpt_to=rcpt_to, uniq_msg_id=uniq_msg_id,campaign_id=campaign_id,
+            subject=subject, sending_ip=sending_ip)
+        events += make_delivery_event(ts=ts,
+            msg_from=msg_from, friendly_from=friendly_from, rcpt_to=rcpt_to, uniq_msg_id=uniq_msg_id,campaign_id=campaign_id,
+            subject=subject, sending_ip=sending_ip)
+        events += make_initial_open_event(ts=ts, rcpt_to=rcpt_to, uniq_msg_id=uniq_msg_id, geo_ip=geo_ip)
+        events += make_open_event(ts=ts, rcpt_to=rcpt_to, uniq_msg_id=uniq_msg_id, geo_ip=geo_ip)
+        events += make_click_event(ts=ts, rcpt_to=rcpt_to, uniq_msg_id=uniq_msg_id, geo_ip=geo_ip)
+    return events
+
+#
+# Return n repeats of a "bounce" event sequence, with time between events
+#
+def makeBounceEvents(ts, n):
+    msg_from = 'test@bounces.test.sparkpost.com' # aka Envelope From, Return-Path: address
+    friendly_from = 'sp-event-agent@test.sparkpost.com'
+    campaign_id = 'big nice campaign'
+    subject = 'lovely test email'
+    sending_ip = '10.0.0.1' # example
+
+    events = ''
+    for i in range(0, n):
+        # "bounce" message sequence
+        rcpt_to = uniq_recip_localpart() + '@ingest.thetucks.com'
+        uniq_msg_id = uniq_message_id()
+        bounce_code = '554'
+        bounce_reason = 'smtp;554 5.7.1 Blacklisted by black.uribl.com Contact the postmaster of this domain for resolution.'
+        bounce_class = '51'
+        events += make_injection_event(ts=ts,
+            msg_from=msg_from, friendly_from=friendly_from, rcpt_to=rcpt_to, uniq_msg_id=uniq_msg_id,campaign_id=campaign_id,
+            subject=subject, sending_ip=sending_ip)
+        events += make_bounce_event(ts=ts,
+            msg_from=msg_from, friendly_from=friendly_from, rcpt_to=rcpt_to, uniq_msg_id=uniq_msg_id,campaign_id=campaign_id,
+            subject=subject, sending_ip=sending_ip,
+            bounce_code=bounce_code, bounce_reason=bounce_reason, bounce_class=bounce_class)
+    return events
+
+
+def sendToIngest(compressed_events):
+    print('Uploading {} bytes of gzip event data'.format(len(compressed_events)))
+    res = requests.post(url, data=compressed_events, headers=hdrs)
+    print(res.status_code, res.content)
+
 
 # -----------------------------------------------------------------------------------------
 # Main code
@@ -201,59 +279,31 @@ if __name__ == "__main__":
         'Content-Encoding': 'gzip'
     }
 
-    msg_from = 'test@bounces.test.sparkpost.com' # aka Envelope From, Return-Path: address
-    friendly_from = 'sp-event-agent@test.sparkpost.com'
-    campaign_id = 'big nice campaign'
-    subject = 'lovely test email'
-    geo_ip = {
-        'country': 'US',
-        'region': 'MD',
-        'city': 'Columbia',
-        'latitude': 39.1749,
-        'longitude': -76.8375,
-        'zip': 21046,
-        'postal_code': '21046',
-    }
-    sending_ip = '10.0.0.1' # example
+    # "wind the clock back", to allow for events spread apart in time
+    ts = FakeTimestamp(int(time.time()) - 10*60, 2)
 
+    events = makeSuccessEvents(ts, 1) + makeBounceEvents(ts, 1)
+    sendToIngest(gzip.compress(events.encode('utf-8')))
+    eventsKeep = events # use later
+
+    # An empty batch
     events = ''
-    naptime = 2
-    for i in range(0, 1):
-        # "successful" message sequence
-        rcpt_to = uniq_recip_localpart() + '@ingest.thetucks.com'
-        uniq_msg_id = uniq_message_id()
-        events += make_injection_event(
-            msg_from=msg_from, friendly_from=friendly_from, rcpt_to=rcpt_to, uniq_msg_id=uniq_msg_id,campaign_id=campaign_id,
-            subject=subject, sending_ip=sending_ip)
-        time.sleep(naptime)
-        events += make_delivery_event(
-            msg_from=msg_from, friendly_from=friendly_from, rcpt_to=rcpt_to, uniq_msg_id=uniq_msg_id,campaign_id=campaign_id,
-            subject=subject, sending_ip=sending_ip)
-        time.sleep(naptime)
-        events += make_initial_open_event(rcpt_to=rcpt_to, uniq_msg_id=uniq_msg_id, geo_ip=geo_ip)
-        time.sleep(naptime)
-        events += make_open_event(rcpt_to=rcpt_to, uniq_msg_id=uniq_msg_id, geo_ip=geo_ip)
-        time.sleep(naptime)
-        events += make_click_event(rcpt_to=rcpt_to, uniq_msg_id=uniq_msg_id, geo_ip=geo_ip)
-        time.sleep(naptime)
+    sendToIngest(gzip.compress(events.encode('utf-8')))
 
-        # "bounce" message sequence
-        rcpt_to = uniq_recip_localpart() + '@ingest.thetucks.com'
-        uniq_msg_id = uniq_message_id()
-        bounce_code = '554'
-        bounce_reason = 'smtp;554 5.7.1 Blacklisted by black.uribl.com Contact the postmaster of this domain for resolution.'
-        bounce_class = '51'
-        events += make_injection_event(
-            msg_from=msg_from, friendly_from=friendly_from, rcpt_to=rcpt_to, uniq_msg_id=uniq_msg_id,campaign_id=campaign_id,
-            subject=subject, sending_ip=sending_ip)
-        time.sleep(naptime)
-        events += make_bounce_event(
-            msg_from=msg_from, friendly_from=friendly_from, rcpt_to=rcpt_to, uniq_msg_id=uniq_msg_id,campaign_id=campaign_id,
-            subject=subject, sending_ip=sending_ip,
-            bounce_code=bounce_code, bounce_reason=bounce_reason, bounce_class=bounce_class)
+    # A batch with an empty NDJSON event, causes a validation error
+    events = '{}\n'
+    sendToIngest(gzip.compress(events.encode('utf-8')))
 
-    # Send off the events
-    compressed_events = gzip.compress(events.encode('utf-8'))
-    print('Uploading {} bytes of gzip event data'.format(len(compressed_events)))
-    res = requests.post(url, data=compressed_events, headers=hdrs)
-    print(res.status_code, res.content)
+    # a batch with faulty GZIPping, causes "decompression" error
+    sendToIngest(b'\x1f\x8b\x08\x00')
+
+    # a duplicate batch error
+    events = eventsKeep
+    sendToIngest(gzip.compress(events.encode('utf-8')))
+
+    # a couple of weird event types to make a validation error (some failures, some accepted)
+    events = makeSuccessEvents(ts, 1)
+    events = events.replace('message_event', 'banana')
+    sendToIngest(gzip.compress(events.encode('utf-8')))
+
+    # "system" errors can't be deliberately caused by faulty inputs, they are an internal thing.
