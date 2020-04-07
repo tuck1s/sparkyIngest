@@ -159,7 +159,7 @@ def make_click_event(ts, rcpt_to, uniq_msg_id, geo_ip):
 
 
 # Note the bounce event type is "inband" not "bounce"
-def make_bounce_event(ts, msg_from, friendly_from, rcpt_to, uniq_msg_id, campaign_id, subject, sending_ip, bounce_code, bounce_reason, bounce_class):
+def make_bounce_event(ts, msg_from, friendly_from, rcpt_to, uniq_msg_id, campaign_id, subject, sending_ip, bounce_code, bounce_reason, bounce_class, raw_reason):
     timestamp = ts.time()
     e = {
         'msys': {
@@ -194,10 +194,47 @@ def make_bounce_event(ts, msg_from, friendly_from, rcpt_to, uniq_msg_id, campaig
     }
     return json.dumps(e, indent=None, separators=None) + '\n'
 
+# Note the bounce event type is "outofband" not the SparkPost events term "out_of_band"
+def make_out_of_band_bounce_event(ts, msg_from, friendly_from, rcpt_to, uniq_msg_id, campaign_id, subject, sending_ip, bounce_code, bounce_reason, bounce_class, raw_reason):
+    timestamp = ts.time()
+    e = {
+        'msys': {
+            'message_event': {
+                'type': 'outofband',
+                #'binding': 'mta1',
+                #'binding_group': 'hot chili',
+                'bounce_class': bounce_class,
+                #'campaign_id': campaign_id,
+                # custom_message_id?? PowerMTA includes this, different to message_id
+                'delv_method': 'smtp',
+                'error_code': bounce_code,
+                'event_id': uniq_event_id(),
+                'friendly_from': friendly_from,
+                # 'friendly_name': '',
+                'message_id': uniq_msg_id,
+                'msg_from': msg_from,
+                #'msg_size': '',
+                #'num_retries': '0',
+                #'open_tracking': True,                       # it's important that open_tracking is enabled if you want Signals Health Score to work
+                'raw_reason': raw_reason,
+                'rcpt_to': rcpt_to,
+                'reason': bounce_reason,
+                #'routing_domain': rcpt_to.split('@')[1],
+                #'sending_ip': sending_ip,
+                # 'rcpt_meta': {'pets' : 'dog'}, # You can include this, PowerMTA does not
+                #'subject': subject,
+                'timestamp': str(timestamp),
+                'subaccount_id': 0,
+            }
+        }
+    }
+    return json.dumps(e, indent=None, separators=None) + '\n'
+
+
 #
 # Return n repeats of a "successful" event sequence, with time between events
 #
-def makeSuccessEvents(ts, n):
+def make_success_events_sequence(ts, n):
     msg_from = 'test@bounces.test.sparkpost.com' # aka Envelope From, Return-Path: address
     friendly_from = 'sp-event-agent@test.sparkpost.com'
     campaign_id = 'big nice campaign'
@@ -232,11 +269,11 @@ def makeSuccessEvents(ts, n):
 #
 # Return n repeats of a "bounce" event sequence, with time between events
 #
-def makeBounceEvents(ts, n):
+def make_bounce_events_sequence(ts, n):
     msg_from = 'test@bounces.test.sparkpost.com' # aka Envelope From, Return-Path: address
     friendly_from = 'sp-event-agent@test.sparkpost.com'
-    campaign_id = 'big nice campaign'
-    subject = 'lovely test email'
+    campaign_id = 'big bouncy campaign'
+    subject = 'This email results in an in-band bounce'
     sending_ip = '10.0.0.1' # example
 
     events = ''
@@ -246,6 +283,7 @@ def makeBounceEvents(ts, n):
         uniq_msg_id = uniq_message_id()
         bounce_code = '554'
         bounce_reason = 'smtp;554 5.7.1 Blacklisted by black.uribl.com Contact the postmaster of this domain for resolution.'
+        raw_reason = bounce_reason # no need to redact this type of reason code
         bounce_class = '51'
         events += make_injection_event(ts=ts,
             msg_from=msg_from, friendly_from=friendly_from, rcpt_to=rcpt_to, uniq_msg_id=uniq_msg_id,campaign_id=campaign_id,
@@ -253,11 +291,40 @@ def makeBounceEvents(ts, n):
         events += make_bounce_event(ts=ts,
             msg_from=msg_from, friendly_from=friendly_from, rcpt_to=rcpt_to, uniq_msg_id=uniq_msg_id,campaign_id=campaign_id,
             subject=subject, sending_ip=sending_ip,
-            bounce_code=bounce_code, bounce_reason=bounce_reason, bounce_class=bounce_class)
+            bounce_code=bounce_code, bounce_reason=bounce_reason, bounce_class=bounce_class, raw_reason=raw_reason)
     return events
 
 
-def sendToIngest(compressed_events):
+def make_out_of_band_bounce_events_sequence(ts, n):
+    msg_from = 'test@oob-bounces.test.sparkpost.com' # aka Envelope From, Return-Path: address
+    friendly_from = 'sp-event-agent@test.sparkpost.com'
+    campaign_id = 'out of band bouncy campaign'
+    subject = 'out of band bounce test email'
+    sending_ip = '10.0.0.1' # example
+
+    events = ''
+    for i in range(0, n):
+        # "Out of band" bounce message sequence, should have a corresponding injection & delivery
+        rcpt_to = uniq_recip_localpart() + '@ingest.thetucks.com'
+        uniq_msg_id = uniq_message_id()
+        bounce_code = '550'
+        raw_reason = 'SMTP;550 5.0.0 <' + rcpt_to + '>... User unknown'
+        bounce_reason = 'SMTP;550 5.0.0 ...@... ...' # redacted the email address for this type of reason code
+        bounce_class = '10'
+        events += make_injection_event(ts=ts,
+            msg_from=msg_from, friendly_from=friendly_from, rcpt_to=rcpt_to, uniq_msg_id=uniq_msg_id,campaign_id=campaign_id,
+            subject=subject, sending_ip=sending_ip)
+        events += make_delivery_event(ts=ts,
+            msg_from=msg_from, friendly_from=friendly_from, rcpt_to=rcpt_to, uniq_msg_id=uniq_msg_id,campaign_id=campaign_id,
+            subject=subject, sending_ip=sending_ip)
+        events += make_out_of_band_bounce_event(ts=ts,
+            msg_from=msg_from, friendly_from=friendly_from, rcpt_to=rcpt_to, uniq_msg_id=uniq_msg_id,campaign_id=campaign_id,
+            subject=subject, sending_ip=sending_ip,
+            bounce_code=bounce_code, bounce_reason=bounce_reason, bounce_class=bounce_class, raw_reason=raw_reason)
+    return events
+
+
+def send_to_ingest(compressed_events):
     print('Uploading {} bytes of gzip event data'.format(len(compressed_events)))
     res = requests.post(url, data=compressed_events, headers=hdrs)
     print(res.status_code, res.content)
@@ -282,28 +349,32 @@ if __name__ == "__main__":
     # "wind the clock back", to allow for events spread apart in time
     ts = FakeTimestamp(int(time.time()) - 10*60, 2)
 
-    events = makeSuccessEvents(ts, 1) + makeBounceEvents(ts, 1)
-    sendToIngest(gzip.compress(events.encode('utf-8')))
+    events = make_success_events_sequence(ts, 1) + make_bounce_events_sequence(ts, 1)
+    send_to_ingest(gzip.compress(events.encode('utf-8')))
     eventsKeep = events # use later
 
     # An empty batch
     events = ''
-    sendToIngest(gzip.compress(events.encode('utf-8')))
+    send_to_ingest(gzip.compress(events.encode('utf-8')))
 
     # A batch with an empty NDJSON event, causes a validation error
     events = '{}\n'
-    sendToIngest(gzip.compress(events.encode('utf-8')))
+    send_to_ingest(gzip.compress(events.encode('utf-8')))
 
     # a batch with faulty GZIPping, causes "decompression" error
-    sendToIngest(b'\x1f\x8b\x08\x00')
+    send_to_ingest(b'\x1f\x8b\x08\x00')
 
     # a duplicate batch error
     events = eventsKeep
-    sendToIngest(gzip.compress(events.encode('utf-8')))
+    send_to_ingest(gzip.compress(events.encode('utf-8')))
 
     # a couple of weird event types to make a validation error (some failures, some accepted)
-    events = makeSuccessEvents(ts, 1)
+    events = make_success_events_sequence(ts, 1)
     events = events.replace('message_event', 'banana')
-    sendToIngest(gzip.compress(events.encode('utf-8')))
+    send_to_ingest(gzip.compress(events.encode('utf-8')))
 
     # "system" errors can't be deliberately caused by faulty inputs, they are an internal thing.
+
+    # Now exercise some other event types
+    events = make_out_of_band_bounce_events_sequence(ts, 1)
+    send_to_ingest(gzip.compress(events.encode('utf-8')))
