@@ -3,6 +3,12 @@
 from __future__ import print_function
 import requests, json
 
+# escape any embedded quotation marks
+def escape_quotation_marks(v):
+    return v.replace('"', '\"') if isinstance(v, str) else v
+
+
+# surrounding placeholders with quotes, in case of values that could contain commas
 out = '"{}","{}","{}","{}","{}","{}"'
 docs = requests.get('https://api.sparkpost.com/api/v1/ingest/events/documentation')
 res = docs.json()
@@ -14,6 +20,6 @@ for ev in res.get('results'):
     for attrName, v  in ev.items():
         v_req = True if v.get('required') else False
         v_rep = True if v.get('reporting') else False
-        v_sv = v.get('sampleValue')
-        v_desc = v.get('description')
+        v_sv = escape_quotation_marks(v.get('sampleValue')) # escape any quote marks inside values
+        v_desc = escape_quotation_marks(v.get('description'))
         print(out.format(ev_name, attrName, v_req, v_rep, v_sv, v_desc))

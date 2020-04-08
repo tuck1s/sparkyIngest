@@ -98,7 +98,7 @@ def make_delivery_event(ts, msg_from, friendly_from, rcpt_to, uniq_msg_id, campa
 
 
 # Note the ingest event type is "initial_open", the SparkPost event type is "initial_open"
-def make_initial_open_event(ts, rcpt_to, uniq_msg_id, geo_ip):
+def make_initial_open_event(ts, rcpt_to, uniq_msg_id, geo_ip, user_agent):
     timestamp = ts.time()
     e = {
         'msys': {
@@ -111,7 +111,7 @@ def make_initial_open_event(ts, rcpt_to, uniq_msg_id, geo_ip):
                 'rcpt_to': rcpt_to,
                 'subaccount_id': 0,
                 'timestamp': str(timestamp),
-                'user_agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_3) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/79.0.3945.130 Safari/537.36',
+                'user_agent': user_agent,
             }
         }
     }
@@ -119,7 +119,7 @@ def make_initial_open_event(ts, rcpt_to, uniq_msg_id, geo_ip):
 
 
 # Note the ingest event type is "open", the SparkPost event type is "open"
-def make_open_event(ts, rcpt_to, uniq_msg_id, geo_ip):
+def make_open_event(ts, rcpt_to, uniq_msg_id, geo_ip, user_agent):
     timestamp = ts.time()
     e = {
         'msys': {
@@ -132,7 +132,7 @@ def make_open_event(ts, rcpt_to, uniq_msg_id, geo_ip):
                 'rcpt_to': rcpt_to,
                 'subaccount_id': 0,
                 'timestamp': str(timestamp),
-                'user_agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_3) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/79.0.3945.130 Safari/537.36',
+                'user_agent': user_agent,
             }
         }
     }
@@ -140,7 +140,7 @@ def make_open_event(ts, rcpt_to, uniq_msg_id, geo_ip):
 
 
 # Note the ingest event type is "click", the SparkPost event type is "click"
-def make_click_event(ts, rcpt_to, uniq_msg_id, geo_ip):
+def make_click_event(ts, rcpt_to, uniq_msg_id, geo_ip, user_agent):
     timestamp = ts.time()
     e = {
         'msys': {
@@ -154,7 +154,71 @@ def make_click_event(ts, rcpt_to, uniq_msg_id, geo_ip):
                 'subaccount_id': 0,
                 'timestamp': str(timestamp),
                 'target_link_url': 'https://example.com',
-                'user_agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_3) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/79.0.3945.130 Safari/537.36',
+                'user_agent': user_agent,
+            }
+        }
+    }
+    return json.dumps(e, indent=None, separators=None) + '\n'
+
+
+# Note the ingest event type is "amp_initial_open", the SparkPost event type is "amp_initial_open"
+def make_amp_initial_open_event(ts, rcpt_to, uniq_msg_id, geo_ip, user_agent):
+    timestamp = ts.time()
+    e = {
+        'msys': {
+            'track_event': {
+                'type': 'amp_initial_open',
+                'delv_method': 'smtp',                     # marked as 'required' in /documentation output
+                'event_id': uniq_event_id(),
+                'geo_ip': geo_ip,
+                'message_id': uniq_msg_id,
+                'rcpt_to': rcpt_to,
+                'subaccount_id': 0,
+                'timestamp': str(timestamp),
+                'user_agent': user_agent,
+            }
+        }
+    }
+    return json.dumps(e, indent=None, separators=None) + '\n'
+
+
+# Note the ingest event type is "amp_open", the SparkPost event type is "amp_open"
+def make_amp_open_event(ts, rcpt_to, uniq_msg_id, geo_ip, user_agent):
+    timestamp = ts.time()
+    e = {
+        'msys': {
+            'track_event': {
+                'type': 'amp_open',
+                'delv_method': 'smtp',                     # marked as 'required' in /documentation output
+                'event_id': uniq_event_id(),
+                'geo_ip': geo_ip,
+                'message_id': uniq_msg_id,
+                'rcpt_to': rcpt_to,
+                'subaccount_id': 0,
+                'timestamp': str(timestamp),
+                'user_agent': user_agent,
+            }
+        }
+    }
+    return json.dumps(e, indent=None, separators=None) + '\n'
+
+
+# Note the ingest event type is "amp_click", the SparkPost event type is "amp_click"
+def make_amp_click_event(ts, rcpt_to, uniq_msg_id, geo_ip, user_agent):
+    timestamp = ts.time()
+    e = {
+        'msys': {
+            'track_event': {
+                'type': 'amp_click',
+                'delv_method': 'smtp',                     # marked as 'required' in /documentation output
+                'event_id': uniq_event_id(),
+                'geo_ip': geo_ip,
+                'message_id': uniq_msg_id,
+                'rcpt_to': rcpt_to,
+                'subaccount_id': 0,
+                'timestamp': str(timestamp),
+                'target_link_url': 'https://example.com',
+                'user_agent': user_agent,
             }
         }
     }
@@ -213,6 +277,7 @@ def make_out_of_band_bounce_event(ts, msg_from, friendly_from, rcpt_to, uniq_msg
                 'message_id': uniq_msg_id,
                 'msg_from': msg_from,
                 'raw_reason': raw_reason,
+                'recv_method': 'smtp',                      # PowerMTA does not set this, but /documentation says it's required
                 'rcpt_to': rcpt_to,
                 'reason': bounce_reason,
                 'subaccount_id': 0,
@@ -259,6 +324,7 @@ def make_delay_event(ts, msg_from, friendly_from, rcpt_to, uniq_msg_id, campaign
                 'binding_group': 'hot chili',
                 'bounce_class': bounce_class,
                 'campaign_id': campaign_id,
+                'delv_method': 'smtp',                      # PowerMTA does not set this, but /documentation says it's required
                 # custom_message_id?? PowerMTA includes this, different to message_id
                 'error_code': bounce_code, # 452
                 'event_id': uniq_event_id(),
@@ -284,10 +350,51 @@ def make_delay_event(ts, msg_from, friendly_from, rcpt_to, uniq_msg_id, campaign
     }
     return json.dumps(e, indent=None, separators=None) + '\n'
 
+
+# Note the ingest event type is "tempfail", the SparkPost event type is "delay"
+def make_policy_rejection_event(ts, msg_from, friendly_from, rcpt_to, uniq_msg_id, campaign_id, subject, sending_ip, bounce_code, bounce_reason, bounce_class, raw_reason):
+    timestamp = ts.time()
+    e = {
+        'msys': {
+            'message_event': {
+                'type': 'policy_rejection',
+                'binding': 'mta1',
+                'binding_group': 'hot chili',
+                'bounce_class': bounce_class,
+                'campaign_id': campaign_id,
+                'delv_method': 'smtp',                      # PowerMTA does not set this, but /documentation says it's required
+                # custom_message_id?? PowerMTA includes this, different to message_id
+                'error_code': bounce_code, # 452
+                'event_id': uniq_event_id(),
+                'friendly_from': friendly_from,
+                'friendly_name': '',
+                'message_id': uniq_msg_id,
+                'msg_from': msg_from,
+                'msg_size': '',
+                'num_retries': '0',
+                'open_tracking': True,                       # it's important that open_tracking is enabled if you want Signals Health Score to work
+                'queue_time': "0",                           # try varying this?
+                'raw_reason': bounce_reason,
+                'rcpt_to': rcpt_to,
+                'reason': bounce_reason,
+                'recv_method': 'smtp',
+                'routing_domain': rcpt_to.split('@')[1],
+                'sending_ip': sending_ip,
+                'subaccount_id': 0,
+                'subject': subject,
+                'timestamp': str(timestamp),
+            }
+        }
+    }
+    return json.dumps(e, indent=None, separators=None) + '\n'
+
+
 #
 # -----------------------------------------------------------------------------------------
-# Return n repeats of a "successful" event sequence, with time between events
+#  Event sequences, with time between events
 # -----------------------------------------------------------------------------------------
+#
+# "successful" event sequence, open/click
 #
 def make_success_events_sequence(ts, n):
     msg_from = 'test@bounces.test.sparkpost.com' # aka Envelope From, Return-Path: address
@@ -304,6 +411,7 @@ def make_success_events_sequence(ts, n):
         'postal_code': '21046',
     }
     sending_ip = '10.0.0.1' # example
+    user_agent = 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_3) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/79.0.3945.130 Safari/537.36'
 
     events = ''
     for i in range(0, n):
@@ -316,13 +424,52 @@ def make_success_events_sequence(ts, n):
         events += make_delivery_event(ts=ts,
             msg_from=msg_from, friendly_from=friendly_from, rcpt_to=rcpt_to, uniq_msg_id=uniq_msg_id,campaign_id=campaign_id,
             subject=subject, sending_ip=sending_ip)
-        events += make_initial_open_event(ts=ts, rcpt_to=rcpt_to, uniq_msg_id=uniq_msg_id, geo_ip=geo_ip)
-        events += make_open_event(ts=ts, rcpt_to=rcpt_to, uniq_msg_id=uniq_msg_id, geo_ip=geo_ip)
-        events += make_click_event(ts=ts, rcpt_to=rcpt_to, uniq_msg_id=uniq_msg_id, geo_ip=geo_ip)
+        events += make_initial_open_event(ts=ts, rcpt_to=rcpt_to, uniq_msg_id=uniq_msg_id, geo_ip=geo_ip, user_agent=user_agent)
+        events += make_open_event(ts=ts, rcpt_to=rcpt_to, uniq_msg_id=uniq_msg_id, geo_ip=geo_ip, user_agent=user_agent)
+        events += make_click_event(ts=ts, rcpt_to=rcpt_to, uniq_msg_id=uniq_msg_id, geo_ip=geo_ip, user_agent=user_agent)
     return events
 
+
 #
-# Return n repeats of a "bounce" event sequence, with time between events
+# "successful" event sequence, AMP open/click
+#
+def make_success_events_sequence_amp(ts, n):
+    msg_from = 'test@bounces.test.sparkpost.com' # aka Envelope From, Return-Path: address
+    friendly_from = 'sp-event-agent@test.sparkpost.com'
+    campaign_id = 'big nice campaign'
+    subject = 'lovely test email'
+    geo_ip = {
+        'country': 'US',
+        'region': 'MD',
+        'city': 'Columbia',
+        'latitude': 39.1749,
+        'longitude': -76.8375,
+        'zip': 21046,
+        'postal_code': '21046',
+    }
+    sending_ip = '10.0.0.1' # example
+    user_agent = 'An AMP HTML mail client - tbc'
+
+
+    events = ''
+    for i in range(0, n):
+        # "successful" message sequence
+        rcpt_to = uniq_recip_localpart() + '@ingest.thetucks.com'
+        uniq_msg_id = uniq_message_id()
+        events += make_injection_event(ts=ts,
+            msg_from=msg_from, friendly_from=friendly_from, rcpt_to=rcpt_to, uniq_msg_id=uniq_msg_id,campaign_id=campaign_id,
+            subject=subject, sending_ip=sending_ip)
+        events += make_delivery_event(ts=ts,
+            msg_from=msg_from, friendly_from=friendly_from, rcpt_to=rcpt_to, uniq_msg_id=uniq_msg_id,campaign_id=campaign_id,
+            subject=subject, sending_ip=sending_ip)
+        events += make_amp_initial_open_event(ts=ts, rcpt_to=rcpt_to, uniq_msg_id=uniq_msg_id, geo_ip=geo_ip, user_agent=user_agent)
+        events += make_amp_open_event(ts=ts, rcpt_to=rcpt_to, uniq_msg_id=uniq_msg_id, geo_ip=geo_ip, user_agent=user_agent)
+        events += make_amp_click_event(ts=ts, rcpt_to=rcpt_to, uniq_msg_id=uniq_msg_id, geo_ip=geo_ip, user_agent=user_agent)
+    return events
+
+
+#
+# "bounce" event sequence, with time between events
 #
 def make_bounce_events_sequence(ts, n):
     msg_from = 'test@bounces.test.sparkpost.com' # aka Envelope From, Return-Path: address
@@ -350,6 +497,9 @@ def make_bounce_events_sequence(ts, n):
     return events
 
 
+#
+# "out of band" bounce event sequence, starting with injection + delivery
+#
 def make_out_of_band_bounce_events_sequence(ts, n):
     msg_from = 'test@oob-bounces.test.sparkpost.com' # aka Envelope From, Return-Path: address
     friendly_from = 'sp-event-agent@test.sparkpost.com'
@@ -359,7 +509,6 @@ def make_out_of_band_bounce_events_sequence(ts, n):
 
     events = ''
     for i in range(0, n):
-        # "Out of band" bounce message sequence, should have a corresponding injection & delivery
         rcpt_to = uniq_recip_localpart() + '@ingest.thetucks.com'
         uniq_msg_id = uniq_message_id()
         bounce_code = '550'
@@ -378,7 +527,9 @@ def make_out_of_band_bounce_events_sequence(ts, n):
             bounce_code=bounce_code, bounce_reason=bounce_reason, bounce_class=bounce_class, raw_reason=raw_reason)
     return events
 
-
+#
+# "spam_complaint" event sequence, starting with injection + delivery
+#
 def make_spam_complaint_events_sequence(ts, n):
     msg_from = 'test@test.sparkpost.com' # aka Envelope From, Return-Path: address
     friendly_from = 'sp-event-agent@test.sparkpost.com'
@@ -403,6 +554,9 @@ def make_spam_complaint_events_sequence(ts, n):
     return events
 
 
+#
+# "delay" message sequence
+#
 def make_delay_events_sequence(ts, n):
     msg_from = 'test@test.sparkpost.com' # aka Envelope From, Return-Path: address
     friendly_from = 'sp-event-agent@test.sparkpost.com'
@@ -412,7 +566,6 @@ def make_delay_events_sequence(ts, n):
 
     events = ''
     for i in range(0, n):
-        # "Out of band" bounce message sequence, should have a corresponding injection & delivery
         rcpt_to = uniq_recip_localpart() + '@ingest.thetucks.com'
         uniq_msg_id = uniq_message_id()
         events += make_injection_event(ts=ts,
@@ -426,6 +579,35 @@ def make_delay_events_sequence(ts, n):
             msg_from=msg_from, friendly_from=friendly_from, rcpt_to=rcpt_to, uniq_msg_id=uniq_msg_id,campaign_id=campaign_id,
             subject=subject, sending_ip=sending_ip,
             bounce_code=bounce_code, bounce_reason=bounce_reason, bounce_class=bounce_class, raw_reason=raw_reason)
+    return events
+
+
+#
+# "rejection" message sequences of various kinds
+#
+def make_rejection_events_sequence(ts, n):
+    msg_from = 'test@test.sparkpost.com' # aka Envelope From, Return-Path: address
+    friendly_from = 'sp-event-agent@test.sparkpost.com'
+    campaign_id = 'campaign-rejections'
+    subject = 'messages that get rejected for various reasons'
+    sending_ip = '10.0.0.1' # example
+
+    events = ''
+    for i in range(0, n):
+        rcpt_to = uniq_recip_localpart() + '@ingest.thetucks.com'
+        uniq_msg_id = uniq_message_id()
+        events += make_injection_event(ts=ts,
+            msg_from=msg_from, friendly_from=friendly_from, rcpt_to=rcpt_to, uniq_msg_id=uniq_msg_id,campaign_id=campaign_id,
+            subject=subject, sending_ip=sending_ip)
+
+        bounce_code = '452'
+        raw_reason = 'smtp;452 4.2.2 Recipient Unable to accept message - mailbox full(c2mailmx101)'
+        bounce_reason = raw_reason # redacted the email address for this type of reason code
+        bounce_class = '22' # Mailbox full
+
+        events += make_policy_rejection_event(ts=ts,
+            msg_from=msg_from, friendly_from=friendly_from, rcpt_to=rcpt_to, uniq_msg_id=uniq_msg_id,campaign_id=campaign_id,
+            subject=subject, sending_ip=sending_ip)
     return events
 
 
@@ -485,4 +667,6 @@ if __name__ == "__main__":
     events = make_out_of_band_bounce_events_sequence(ts, 1)
     events += make_spam_complaint_events_sequence(ts, 1)
     events += make_delay_events_sequence(ts, 1)
+    events += make_success_events_sequence_amp(ts, 1) # AMP opens and clicks
+    events += make_rejection_sequence(ts, 1)
     send_to_ingest(gzip.compress(events.encode('utf-8')))
