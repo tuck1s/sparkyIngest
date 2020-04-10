@@ -34,7 +34,7 @@ class FakeTimestamp:
 
 
 # Note the ingest event type is "reception", the SparkPost event type is "injection"
-def make_injection_event(ts, msg_from, friendly_from, rcpt_to, uniq_msg_id, campaign_id, subject, sending_ip):
+def make_injection_event(ts, msg_from, friendly_from, rcpt_to, uniq_msg_id, campaign_id, subject, sending_ip, recv_method='smtp'):
     timestamp = ts.time()
     e = {
         'msys': {
@@ -52,7 +52,7 @@ def make_injection_event(ts, msg_from, friendly_from, rcpt_to, uniq_msg_id, camp
                 'msg_size': '315',
                 'open_tracking': True,                       # it's important that open_tracking is enabled if you want Signals Health Score to work
                 'rcpt_to': rcpt_to,
-                'recv_method': 'smtp',
+                'recv_method': recv_method,
                 'routing_domain': rcpt_to.split('@')[1],
                 'sending_ip': sending_ip,
                 # 'rcpt_meta': {'pets' : 'dog'}, # You can include this, PowerMTA does not
@@ -351,37 +351,85 @@ def make_delay_event(ts, msg_from, friendly_from, rcpt_to, uniq_msg_id, campaign
     return json.dumps(e, indent=None, separators=None) + '\n'
 
 
-# Note the ingest event type is "tempfail", the SparkPost event type is "delay"
+# Note the ingest event type is "rejection", the SparkPost event type is "policy_rejection"
 def make_policy_rejection_event(ts, msg_from, friendly_from, rcpt_to, uniq_msg_id, campaign_id, subject, sending_ip, bounce_code, bounce_reason, bounce_class, raw_reason):
     timestamp = ts.time()
     e = {
         'msys': {
             'message_event': {
-                'type': 'policy_rejection',
-                'binding': 'mta1',
-                'binding_group': 'hot chili',
+                'type': 'rejection',
                 'bounce_class': bounce_class,
-                'campaign_id': campaign_id,
-                'delv_method': 'smtp',                      # PowerMTA does not set this, but /documentation says it's required
-                # custom_message_id?? PowerMTA includes this, different to message_id
-                'error_code': bounce_code, # 452
+                'error_code': bounce_code,
                 'event_id': uniq_event_id(),
                 'friendly_from': friendly_from,
-                'friendly_name': '',
                 'message_id': uniq_msg_id,
                 'msg_from': msg_from,
-                'msg_size': '',
-                'num_retries': '0',
-                'open_tracking': True,                       # it's important that open_tracking is enabled if you want Signals Health Score to work
-                'queue_time': "0",                           # try varying this?
+                'raw_rcpt_to': rcpt_to,
                 'raw_reason': bounce_reason,
                 'rcpt_to': rcpt_to,
                 'reason': bounce_reason,
                 'recv_method': 'smtp',
-                'routing_domain': rcpt_to.split('@')[1],
-                'sending_ip': sending_ip,
                 'subaccount_id': 0,
+                'timestamp': str(timestamp),
+            }
+        }
+    }
+    return json.dumps(e, indent=None, separators=None) + '\n'
+
+
+# Note the ingest event type is "gen_rejection", the SparkPost event type is "generation_rejection"
+def make_generation_rejection_event(ts, msg_from, friendly_from, rcpt_to, uniq_msg_id, campaign_id, subject, sending_ip, bounce_code, bounce_reason, bounce_class, raw_reason):
+    timestamp = ts.time()
+    e = {
+        'msys': {
+            'gen_event': {
+                'type': 'gen_rejection',
+                'bounce_class': bounce_class,
+                'campaign_id': campaign_id,
+                'error_code': bounce_code,
+                'event_id': uniq_event_id(),
+                'friendly_from': friendly_from,
+                'message_id': uniq_msg_id,
+                'msg_from': msg_from,
+                'raw_rcpt_to': rcpt_to,
+                'raw_reason': bounce_reason,
+                'rcpt_to': rcpt_to,
+                'reason': bounce_reason,
+                'recv_method': 'rest',
                 'subject': subject,
+                'template_id': 'template_123456',
+                'template_version': '0',
+                'subaccount_id': 0,
+                'timestamp': str(timestamp),
+            }
+        }
+    }
+    return json.dumps(e, indent=None, separators=None) + '\n'
+
+
+# Note the ingest event type is "gen_fail", the SparkPost event type is "generation_failure"
+def make_generation_failure_event(ts, msg_from, friendly_from, rcpt_to, uniq_msg_id, campaign_id, subject, sending_ip, bounce_code, bounce_reason, bounce_class, raw_reason):
+    timestamp = ts.time()
+    e = {
+        'msys': {
+            'gen_event': {
+                'type': 'gen_fail',
+                #'bounce_class': bounce_class,
+                'campaign_id': campaign_id,
+                'error_code': bounce_code,
+                'event_id': uniq_event_id(),
+                'friendly_from': friendly_from,
+                'message_id': uniq_msg_id,
+                'msg_from': msg_from,
+                'raw_rcpt_to': rcpt_to,
+                'raw_reason': bounce_reason,
+                'rcpt_to': rcpt_to,
+                'reason': bounce_reason,
+                'recv_method': 'rest',
+                'subject': subject, # this may be absent from some SparkPost internal event cases, but we can add it here
+                'template_id': 'template_123456',
+                'template_version': '0',
+                'subaccount_id': 0,
                 'timestamp': str(timestamp),
             }
         }
@@ -411,7 +459,8 @@ def make_success_events_sequence(ts, n):
         'postal_code': '21046',
     }
     sending_ip = '10.0.0.1' # example
-    user_agent = 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_3) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/79.0.3945.130 Safari/537.36'
+    user_agent_opens = 'Mozilla/5.0 (Windows NT 5.1; rv:11.0) Gecko Firefox/11.0 (via ggpht.com GoogleImageProxy)'
+    user_agent_click = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/80.0.3987.163 Safari/537.36'
 
     events = ''
     for i in range(0, n):
@@ -424,9 +473,9 @@ def make_success_events_sequence(ts, n):
         events += make_delivery_event(ts=ts,
             msg_from=msg_from, friendly_from=friendly_from, rcpt_to=rcpt_to, uniq_msg_id=uniq_msg_id,campaign_id=campaign_id,
             subject=subject, sending_ip=sending_ip)
-        events += make_initial_open_event(ts=ts, rcpt_to=rcpt_to, uniq_msg_id=uniq_msg_id, geo_ip=geo_ip, user_agent=user_agent)
-        events += make_open_event(ts=ts, rcpt_to=rcpt_to, uniq_msg_id=uniq_msg_id, geo_ip=geo_ip, user_agent=user_agent)
-        events += make_click_event(ts=ts, rcpt_to=rcpt_to, uniq_msg_id=uniq_msg_id, geo_ip=geo_ip, user_agent=user_agent)
+        events += make_initial_open_event(ts=ts, rcpt_to=rcpt_to, uniq_msg_id=uniq_msg_id, geo_ip=geo_ip, user_agent=user_agent_opens)
+        events += make_open_event(ts=ts, rcpt_to=rcpt_to, uniq_msg_id=uniq_msg_id, geo_ip=geo_ip, user_agent=user_agent_opens)
+        events += make_click_event(ts=ts, rcpt_to=rcpt_to, uniq_msg_id=uniq_msg_id, geo_ip=geo_ip, user_agent=user_agent_click)
     return events
 
 
@@ -448,8 +497,8 @@ def make_success_events_sequence_amp(ts, n):
         'postal_code': '21046',
     }
     sending_ip = '10.0.0.1' # example
-    user_agent = 'An AMP HTML mail client - tbc'
-
+    user_agent_opens = 'Mozilla/5.0 (Windows NT 5.1; rv:11.0) Gecko Firefox/11.0 (via ggpht.com GoogleImageProxy)'
+    user_agent_click = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/80.0.3987.163 Safari/537.36'
 
     events = ''
     for i in range(0, n):
@@ -462,9 +511,9 @@ def make_success_events_sequence_amp(ts, n):
         events += make_delivery_event(ts=ts,
             msg_from=msg_from, friendly_from=friendly_from, rcpt_to=rcpt_to, uniq_msg_id=uniq_msg_id,campaign_id=campaign_id,
             subject=subject, sending_ip=sending_ip)
-        events += make_amp_initial_open_event(ts=ts, rcpt_to=rcpt_to, uniq_msg_id=uniq_msg_id, geo_ip=geo_ip, user_agent=user_agent)
-        events += make_amp_open_event(ts=ts, rcpt_to=rcpt_to, uniq_msg_id=uniq_msg_id, geo_ip=geo_ip, user_agent=user_agent)
-        events += make_amp_click_event(ts=ts, rcpt_to=rcpt_to, uniq_msg_id=uniq_msg_id, geo_ip=geo_ip, user_agent=user_agent)
+        events += make_amp_initial_open_event(ts=ts, rcpt_to=rcpt_to, uniq_msg_id=uniq_msg_id, geo_ip=geo_ip, user_agent=user_agent_opens)
+        events += make_amp_open_event(ts=ts, rcpt_to=rcpt_to, uniq_msg_id=uniq_msg_id, geo_ip=geo_ip, user_agent=user_agent_opens)
+        events += make_amp_click_event(ts=ts, rcpt_to=rcpt_to, uniq_msg_id=uniq_msg_id, geo_ip=geo_ip, user_agent=user_agent_click)
     return events
 
 
@@ -589,25 +638,60 @@ def make_rejection_events_sequence(ts, n):
     msg_from = 'test@test.sparkpost.com' # aka Envelope From, Return-Path: address
     friendly_from = 'sp-event-agent@test.sparkpost.com'
     campaign_id = 'campaign-rejections'
-    subject = 'messages that get rejected for various reasons'
     sending_ip = '10.0.0.1' # example
 
     events = ''
     for i in range(0, n):
+        subject = 'message that gets policy rejection (smtp)'
         rcpt_to = uniq_recip_localpart() + '@ingest.thetucks.com'
         uniq_msg_id = uniq_message_id()
         events += make_injection_event(ts=ts,
             msg_from=msg_from, friendly_from=friendly_from, rcpt_to=rcpt_to, uniq_msg_id=uniq_msg_id,campaign_id=campaign_id,
             subject=subject, sending_ip=sending_ip)
 
-        bounce_code = '452'
-        raw_reason = 'smtp;452 4.2.2 Recipient Unable to accept message - mailbox full(c2mailmx101)'
+        bounce_class = '25' # "Admin Failure"
+        bounce_code = '550'
+        raw_reason = '550 5.7.1 Unconfigured Sending Domain'
         bounce_reason = raw_reason # redacted the email address for this type of reason code
-        bounce_class = '22' # Mailbox full
 
         events += make_policy_rejection_event(ts=ts,
             msg_from=msg_from, friendly_from=friendly_from, rcpt_to=rcpt_to, uniq_msg_id=uniq_msg_id,campaign_id=campaign_id,
-            subject=subject, sending_ip=sending_ip)
+            subject=subject, sending_ip=sending_ip,
+            bounce_code=bounce_code, bounce_reason=bounce_reason, bounce_class=bounce_class, raw_reason=raw_reason)
+
+        subject = 'message that gets generation rejection (rest)'
+        rcpt_to = uniq_recip_localpart() + '@ingest.thetucks.com'
+        uniq_msg_id = uniq_message_id()
+        events += make_injection_event(ts=ts,
+            msg_from=msg_from, friendly_from=friendly_from, rcpt_to=rcpt_to, uniq_msg_id=uniq_msg_id,campaign_id=campaign_id,
+            subject=subject, sending_ip=sending_ip, recv_method='rest')
+
+        bounce_class = '25' # "Admin Failure"
+        bounce_code = '550'
+        raw_reason = '550 5.6.0 No Sending Domain found in From header'
+        bounce_reason = raw_reason # redacted the email address for this type of reason code
+
+        events += make_generation_rejection_event(ts=ts,
+            msg_from=msg_from, friendly_from=friendly_from, rcpt_to=rcpt_to, uniq_msg_id=uniq_msg_id,campaign_id=campaign_id,
+            subject=subject, sending_ip=sending_ip,
+            bounce_code=bounce_code, bounce_reason=bounce_reason, bounce_class=bounce_class, raw_reason=raw_reason)
+
+        subject = 'message that gets generation failure (rest)'
+        rcpt_to = uniq_recip_localpart() + '@ingest.thetucks.com'
+        uniq_msg_id = uniq_message_id()
+        events += make_injection_event(ts=ts,
+            msg_from=msg_from, friendly_from=friendly_from, rcpt_to=rcpt_to, uniq_msg_id=uniq_msg_id,campaign_id=campaign_id,
+            subject=subject, sending_ip=sending_ip, recv_method='rest')
+
+        bounce_code = '554'
+        raw_reason = '554 5.3.3 [internal] Error while rendering part html: line 1: substitution value \'myvar\' did not exist or was null'
+        bounce_reason = raw_reason # redacted the email address for this type of reason code
+
+        events += make_generation_failure_event(ts=ts,
+            msg_from=msg_from, friendly_from=friendly_from, rcpt_to=rcpt_to, uniq_msg_id=uniq_msg_id,campaign_id=campaign_id,
+            subject=subject, sending_ip=sending_ip,
+            bounce_code=bounce_code, bounce_reason=bounce_reason, bounce_class=bounce_class, raw_reason=raw_reason)
+
     return events
 
 
@@ -636,6 +720,7 @@ if __name__ == "__main__":
     # "wind the clock back", to allow for events spread apart in time
     ts = FakeTimestamp(int(time.time()) - 10*60, 2)
 
+    """
     events = make_success_events_sequence(ts, 1)
     events += make_bounce_events_sequence(ts, 1)
     send_to_ingest(gzip.compress(events.encode('utf-8')))
@@ -668,5 +753,7 @@ if __name__ == "__main__":
     events += make_spam_complaint_events_sequence(ts, 1)
     events += make_delay_events_sequence(ts, 1)
     events += make_success_events_sequence_amp(ts, 1) # AMP opens and clicks
-    events += make_rejection_sequence(ts, 1)
+    """
+    events = ''
+    events += make_rejection_events_sequence(ts, 1)
     send_to_ingest(gzip.compress(events.encode('utf-8')))
