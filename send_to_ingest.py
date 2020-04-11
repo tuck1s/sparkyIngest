@@ -3,7 +3,7 @@
 from __future__ import print_function
 import requests, gzip, json, time, uuid, os
 from datetime import datetime
-from ingest import *
+import ingest
 
 # Returns a SparkPost formatted unique messageID, which has an embedded timestamp
 def uniq_message_id():
@@ -34,7 +34,6 @@ class FakeTimestamp:
 # -----------------------------------------------------------------------------------------
 #
 # "successful" event sequence, open/click
-#
 def make_success_events_sequence(ts, n):
     msg_from = 'test@bounces.test.sparkpost.com' # aka Envelope From, Return-Path: address
     friendly_from = 'sp-event-agent@test.sparkpost.com'
@@ -58,21 +57,19 @@ def make_success_events_sequence(ts, n):
         # "successful" message sequence
         rcpt_to = uniq_recip_localpart() + '@ingest.thetucks.com'
         uniq_msg_id = uniq_message_id()
-        events += make_injection_event(ts=ts,
+        events += ingest.make_injection_event(ts=ts,
             msg_from=msg_from, friendly_from=friendly_from, rcpt_to=rcpt_to, uniq_msg_id=uniq_msg_id,campaign_id=campaign_id,
             subject=subject, sending_ip=sending_ip)
-        events += make_delivery_event(ts=ts,
+        events += ingest.make_delivery_event(ts=ts,
             msg_from=msg_from, friendly_from=friendly_from, rcpt_to=rcpt_to, uniq_msg_id=uniq_msg_id,campaign_id=campaign_id,
             subject=subject, sending_ip=sending_ip)
-        events += make_initial_open_event(ts=ts, rcpt_to=rcpt_to, uniq_msg_id=uniq_msg_id, geo_ip=geo_ip, user_agent=user_agent_opens)
-        events += make_open_event(ts=ts, rcpt_to=rcpt_to, uniq_msg_id=uniq_msg_id, geo_ip=geo_ip, user_agent=user_agent_opens)
-        events += make_click_event(ts=ts, rcpt_to=rcpt_to, uniq_msg_id=uniq_msg_id, geo_ip=geo_ip, user_agent=user_agent_click)
+        events += ingest.make_initial_open_event(ts=ts, rcpt_to=rcpt_to, uniq_msg_id=uniq_msg_id, geo_ip=geo_ip, user_agent=user_agent_opens)
+        events += ingest.make_open_event(ts=ts, rcpt_to=rcpt_to, uniq_msg_id=uniq_msg_id, geo_ip=geo_ip, user_agent=user_agent_opens)
+        events += ingest.make_click_event(ts=ts, rcpt_to=rcpt_to, uniq_msg_id=uniq_msg_id, geo_ip=geo_ip, user_agent=user_agent_click)
     return events
 
 
-#
 # "successful" event sequence, AMP open/click
-#
 def make_success_events_sequence_amp(ts, n):
     msg_from = 'test@bounces.test.sparkpost.com' # aka Envelope From, Return-Path: address
     friendly_from = 'sp-event-agent@test.sparkpost.com'
@@ -96,21 +93,19 @@ def make_success_events_sequence_amp(ts, n):
         # "successful" message sequence
         rcpt_to = uniq_recip_localpart() + '@ingest.thetucks.com'
         uniq_msg_id = uniq_message_id()
-        events += make_injection_event(ts=ts,
+        events += ingest.make_injection_event(ts=ts,
             msg_from=msg_from, friendly_from=friendly_from, rcpt_to=rcpt_to, uniq_msg_id=uniq_msg_id,campaign_id=campaign_id,
             subject=subject, sending_ip=sending_ip)
-        events += make_delivery_event(ts=ts,
+        events += ingest.make_delivery_event(ts=ts,
             msg_from=msg_from, friendly_from=friendly_from, rcpt_to=rcpt_to, uniq_msg_id=uniq_msg_id,campaign_id=campaign_id,
             subject=subject, sending_ip=sending_ip)
-        events += make_amp_initial_open_event(ts=ts, rcpt_to=rcpt_to, uniq_msg_id=uniq_msg_id, geo_ip=geo_ip, user_agent=user_agent_opens)
-        events += make_amp_open_event(ts=ts, rcpt_to=rcpt_to, uniq_msg_id=uniq_msg_id, geo_ip=geo_ip, user_agent=user_agent_opens)
-        events += make_amp_click_event(ts=ts, rcpt_to=rcpt_to, uniq_msg_id=uniq_msg_id, geo_ip=geo_ip, user_agent=user_agent_click)
+        events += ingest.make_amp_initial_open_event(ts=ts, rcpt_to=rcpt_to, uniq_msg_id=uniq_msg_id, geo_ip=geo_ip, user_agent=user_agent_opens)
+        events += ingest.make_amp_open_event(ts=ts, rcpt_to=rcpt_to, uniq_msg_id=uniq_msg_id, geo_ip=geo_ip, user_agent=user_agent_opens)
+        events += ingest.make_amp_click_event(ts=ts, rcpt_to=rcpt_to, uniq_msg_id=uniq_msg_id, geo_ip=geo_ip, user_agent=user_agent_click)
     return events
 
 
-#
-# "bounce" event sequence, with time between events
-#
+# "bounce" event sequence (in-band bounce), starting
 def make_bounce_events_sequence(ts, n):
     msg_from = 'test@bounces.test.sparkpost.com' # aka Envelope From, Return-Path: address
     friendly_from = 'sp-event-agent@test.sparkpost.com'
@@ -127,19 +122,17 @@ def make_bounce_events_sequence(ts, n):
         bounce_reason = 'smtp;554 5.7.1 Blacklisted by black.uribl.com Contact the postmaster of this domain for resolution.'
         raw_reason = bounce_reason # no need to redact this type of reason code
         bounce_class = '51'
-        events += make_injection_event(ts=ts,
+        events += ingest.make_injection_event(ts=ts,
             msg_from=msg_from, friendly_from=friendly_from, rcpt_to=rcpt_to, uniq_msg_id=uniq_msg_id,campaign_id=campaign_id,
             subject=subject, sending_ip=sending_ip)
-        events += make_bounce_event(ts=ts,
+        events += ingest.make_bounce_event(ts=ts,
             msg_from=msg_from, friendly_from=friendly_from, rcpt_to=rcpt_to, uniq_msg_id=uniq_msg_id,campaign_id=campaign_id,
             subject=subject, sending_ip=sending_ip,
             bounce_code=bounce_code, bounce_reason=bounce_reason, bounce_class=bounce_class, raw_reason=raw_reason)
     return events
 
 
-#
 # "out of band" bounce event sequence, starting with injection + delivery
-#
 def make_out_of_band_bounce_events_sequence(ts, n):
     msg_from = 'test@oob-bounces.test.sparkpost.com' # aka Envelope From, Return-Path: address
     friendly_from = 'sp-event-agent@test.sparkpost.com'
@@ -155,13 +148,13 @@ def make_out_of_band_bounce_events_sequence(ts, n):
         raw_reason = 'SMTP;550 5.0.0 <' + rcpt_to + '>... User unknown'
         bounce_reason = 'SMTP;550 5.0.0 ...@... ...' # redacted the email address for this type of reason code
         bounce_class = '10'
-        events += make_injection_event(ts=ts,
+        events += ingest.make_injection_event(ts=ts,
             msg_from=msg_from, friendly_from=friendly_from, rcpt_to=rcpt_to, uniq_msg_id=uniq_msg_id,campaign_id=campaign_id,
             subject=subject, sending_ip=sending_ip)
-        events += make_delivery_event(ts=ts,
+        events += ingest.make_delivery_event(ts=ts,
             msg_from=msg_from, friendly_from=friendly_from, rcpt_to=rcpt_to, uniq_msg_id=uniq_msg_id,campaign_id=campaign_id,
             subject=subject, sending_ip=sending_ip)
-        events += make_out_of_band_bounce_event(ts=ts,
+        events += ingest.make_out_of_band_bounce_event(ts=ts,
             msg_from=msg_from, friendly_from=friendly_from, rcpt_to=rcpt_to, uniq_msg_id=uniq_msg_id,campaign_id=campaign_id,
             subject=subject, sending_ip=sending_ip,
             bounce_code=bounce_code, bounce_reason=bounce_reason, bounce_class=bounce_class, raw_reason=raw_reason)
@@ -182,21 +175,20 @@ def make_spam_complaint_events_sequence(ts, n):
         # "Out of band" bounce message sequence, should have a corresponding injection & delivery
         rcpt_to = uniq_recip_localpart() + '@ingest.thetucks.com'
         uniq_msg_id = uniq_message_id()
-        events += make_injection_event(ts=ts,
+        events += ingest.make_injection_event(ts=ts,
             msg_from=msg_from, friendly_from=friendly_from, rcpt_to=rcpt_to, uniq_msg_id=uniq_msg_id,campaign_id=campaign_id,
             subject=subject, sending_ip=sending_ip)
-        events += make_delivery_event(ts=ts,
+        events += ingest.make_delivery_event(ts=ts,
             msg_from=msg_from, friendly_from=friendly_from, rcpt_to=rcpt_to, uniq_msg_id=uniq_msg_id,campaign_id=campaign_id,
             subject=subject, sending_ip=sending_ip)
-        events += make_spam_complaint_event(ts=ts,
+        events += ingest.make_spam_complaint_event(ts=ts,
             msg_from=msg_from, friendly_from=friendly_from, rcpt_to=rcpt_to, uniq_msg_id=uniq_msg_id,campaign_id=campaign_id,
             subject=subject, sending_ip=sending_ip)
     return events
 
 
-#
+
 # "delay" message sequence
-#
 def make_delay_events_sequence(ts, n):
     msg_from = 'test@test.sparkpost.com' # aka Envelope From, Return-Path: address
     friendly_from = 'sp-event-agent@test.sparkpost.com'
@@ -208,23 +200,21 @@ def make_delay_events_sequence(ts, n):
     for i in range(0, n):
         rcpt_to = uniq_recip_localpart() + '@ingest.thetucks.com'
         uniq_msg_id = uniq_message_id()
-        events += make_injection_event(ts=ts,
+        events += ingest.make_injection_event(ts=ts,
             msg_from=msg_from, friendly_from=friendly_from, rcpt_to=rcpt_to, uniq_msg_id=uniq_msg_id,campaign_id=campaign_id,
             subject=subject, sending_ip=sending_ip)
         bounce_code = '452'
         raw_reason = 'smtp;452 4.2.2 Recipient Unable to accept message - mailbox full(c2mailmx101)'
         bounce_reason = raw_reason
         bounce_class = '22' # Mailbox full
-        events += make_delay_event(ts=ts,
+        events += ingest.make_delay_event(ts=ts,
             msg_from=msg_from, friendly_from=friendly_from, rcpt_to=rcpt_to, uniq_msg_id=uniq_msg_id,campaign_id=campaign_id,
             subject=subject, sending_ip=sending_ip,
             bounce_code=bounce_code, bounce_reason=bounce_reason, bounce_class=bounce_class, raw_reason=raw_reason)
     return events
 
 
-#
 # "rejection" message sequences of various kinds
-#
 def make_rejection_events_sequence(ts, n):
     msg_from = 'test@test.sparkpost.com' # aka Envelope From, Return-Path: address
     friendly_from = 'sp-event-agent@test.sparkpost.com'
@@ -241,7 +231,7 @@ def make_rejection_events_sequence(ts, n):
         bounce_code = '550'
         raw_reason = '550 5.7.1 Unconfigured Sending Domain'
         bounce_reason = raw_reason
-        events += make_policy_rejection_event(ts=ts,
+        events += ingest.make_policy_rejection_event(ts=ts,
             msg_from=msg_from, friendly_from=friendly_from, rcpt_to=rcpt_to, uniq_msg_id=uniq_msg_id,campaign_id=campaign_id,
             subject=subject, sending_ip=sending_ip,
             bounce_code=bounce_code, bounce_reason=bounce_reason, bounce_class=bounce_class, raw_reason=raw_reason)
@@ -256,7 +246,7 @@ def make_rejection_events_sequence(ts, n):
         raw_reason = '550 5.6.0 No Sending Domain found in From header'
         bounce_reason = raw_reason
 
-        events += make_generation_rejection_event(ts=ts,
+        events += ingest.make_generation_rejection_event(ts=ts,
             msg_from=msg_from, friendly_from=friendly_from, rcpt_to=rcpt_to, uniq_msg_id=uniq_msg_id,campaign_id=campaign_id,
             subject=subject, sending_ip=sending_ip,
             bounce_code=bounce_code, bounce_reason=bounce_reason, bounce_class=bounce_class, raw_reason=raw_reason)
@@ -267,7 +257,7 @@ def make_rejection_events_sequence(ts, n):
         raw_reason = '554 5.3.3 [internal] Error while rendering part html: line 1: substitution value \'myvar\' did not exist or was null'
         bounce_reason = raw_reason
 
-        events += make_generation_failure_event(ts=ts,
+        events += ingest.make_generation_failure_event(ts=ts,
             msg_from=msg_from, friendly_from=friendly_from, rcpt_to=rcpt_to, uniq_msg_id=uniq_msg_id,campaign_id=campaign_id,
             subject=subject, sending_ip=sending_ip,
             bounce_code=bounce_code, bounce_reason=bounce_reason, bounce_class=bounce_class, raw_reason=raw_reason)
@@ -275,9 +265,7 @@ def make_rejection_events_sequence(ts, n):
     return events
 
 
-#
 # "unsubscribe" message sequences of various kinds
-#
 def make_unsubscribe_events_sequence(ts, n):
     msg_from = 'test@test.sparkpost.com' # aka Envelope From, Return-Path: address
     friendly_from = 'sp-event-agent@test.sparkpost.com'
@@ -289,14 +277,14 @@ def make_unsubscribe_events_sequence(ts, n):
         subject = 'message that gets unsubscribed'
         rcpt_to = uniq_recip_localpart() + '@ingest.thetucks.com'
         uniq_msg_id = uniq_message_id()
-        events += make_injection_event(ts=ts,
+        events += ingest.make_injection_event(ts=ts,
             msg_from=msg_from, friendly_from=friendly_from, rcpt_to=rcpt_to, uniq_msg_id=uniq_msg_id,campaign_id=campaign_id,
             subject=subject, sending_ip=sending_ip)
 
         user_agent_click = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/80.0.3987.163 Safari/537.36'
-        events += make_link_unsubscribe_event(ts=ts, rcpt_to=rcpt_to, uniq_msg_id=uniq_msg_id, user_agent=user_agent_click)
+        events += ingest.make_link_unsubscribe_event(ts=ts, rcpt_to=rcpt_to, uniq_msg_id=uniq_msg_id, user_agent=user_agent_click)
 
-        events += make_list_unsubscribe_event(ts=ts, rcpt_to=rcpt_to, uniq_msg_id=uniq_msg_id, user_agent=user_agent_click)
+        events += ingest.make_list_unsubscribe_event(ts=ts, rcpt_to=rcpt_to, uniq_msg_id=uniq_msg_id, user_agent=user_agent_click)
 
     return events
 
@@ -325,7 +313,10 @@ hdrs = {
 # "wind the clock back", to allow for events spread apart in time
 ts = FakeTimestamp(int(time.time()) - 10*60, 2)
 
-events = make_success_events_sequence(ts, 1) + make_bounce_events_sequence(ts, 1)
+events = ''
+events += ingest.make_success_events_sequence(ts, 1)
+events += ingest.make_success_events_sequence_amp(ts, 1) # AMP opens and clicks
+events += ingest.make_bounce_events_sequence(ts, 1)
 send_to_ingest(gzip.compress(events.encode('utf-8')))
 eventsKeep = events # use later
 
@@ -353,14 +344,13 @@ send_to_ingest(gzip.compress(events.encode('utf-8')))
 
 # Now exercise some other event types
 events = ''
-events += make_out_of_band_bounce_events_sequence(ts, 1)
-events += make_spam_complaint_events_sequence(ts, 1)
-events += make_delay_events_sequence(ts, 1)
-events += make_success_events_sequence_amp(ts, 1) # AMP opens and clicks
-events += make_rejection_events_sequence(ts, 1) # Various kinds of rejection events
+events += ingest.make_out_of_band_bounce_events_sequence(ts, 1)
+events += ingest.make_spam_complaint_events_sequence(ts, 1)
+events += ingest.make_delay_events_sequence(ts, 1)
+events += ingest.make_rejection_events_sequence(ts, 1) # Various kinds of rejection events
 send_to_ingest(gzip.compress(events.encode('utf-8')))
 
 # Unsubscribes
 events = ''
-events += make_unsubscribe_events_sequence(ts, 1)
+events += ingest.make_unsubscribe_events_sequence(ts, 1)
 send_to_ingest(gzip.compress(events.encode('utf-8')))
