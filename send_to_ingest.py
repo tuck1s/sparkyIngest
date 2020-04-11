@@ -313,10 +313,9 @@ hdrs = {
 # "wind the clock back", to allow for events spread apart in time
 ts = FakeTimestamp(int(time.time()) - 10*60, 2)
 
-events = ''
-events += ingest.make_success_events_sequence(ts, 1)
-events += ingest.make_success_events_sequence_amp(ts, 1) # AMP opens and clicks
-events += ingest.make_bounce_events_sequence(ts, 1)
+events = make_success_events_sequence(ts, 1)
+events += make_success_events_sequence_amp(ts, 1) # AMP opens and clicks
+events += make_bounce_events_sequence(ts, 1)
 send_to_ingest(gzip.compress(events.encode('utf-8')))
 eventsKeep = events # use later
 
@@ -344,13 +343,13 @@ send_to_ingest(gzip.compress(events.encode('utf-8')))
 
 # Now exercise some other event types
 events = ''
-events += ingest.make_out_of_band_bounce_events_sequence(ts, 1)
-events += ingest.make_spam_complaint_events_sequence(ts, 1)
-events += ingest.make_delay_events_sequence(ts, 1)
-events += ingest.make_rejection_events_sequence(ts, 1) # Various kinds of rejection events
+events += make_out_of_band_bounce_events_sequence(ts, 1)
+events += make_spam_complaint_events_sequence(ts, 1)
+events += make_delay_events_sequence(ts, 1)
+events += make_rejection_events_sequence(ts, 1) # Various kinds of rejection events
 send_to_ingest(gzip.compress(events.encode('utf-8')))
 
 # Unsubscribes
 events = ''
-events += ingest.make_unsubscribe_events_sequence(ts, 1)
+events += make_unsubscribe_events_sequence(ts, 1)
 send_to_ingest(gzip.compress(events.encode('utf-8')))
