@@ -160,9 +160,8 @@ def make_out_of_band_bounce_events_sequence(ts, n):
             bounce_code=bounce_code, bounce_reason=bounce_reason, bounce_class=bounce_class, raw_reason=raw_reason)
     return events
 
-#
+
 # "spam_complaint" event sequence, starting with injection + delivery
-#
 def make_spam_complaint_events_sequence(ts, n):
     msg_from = 'test@test.sparkpost.com' # aka Envelope From, Return-Path: address
     friendly_from = 'sp-event-agent@test.sparkpost.com'
@@ -185,7 +184,6 @@ def make_spam_complaint_events_sequence(ts, n):
             msg_from=msg_from, friendly_from=friendly_from, rcpt_to=rcpt_to, uniq_msg_id=uniq_msg_id,campaign_id=campaign_id,
             subject=subject, sending_ip=sending_ip)
     return events
-
 
 
 # "delay" message sequence
@@ -295,10 +293,28 @@ def send_to_ingest(compressed_events):
     print(res.status_code, res.content)
 
 
+def stripEnd(h, s):
+    if h.endswith(s):
+        h = h[:-len(s)]
+    return h
+
+
+# condense into a access+base_url form
+def hostCleanup(host):
+    if not host.startswith('https://'):
+        host = 'https://' + host  # Add schema
+    host = stripEnd(host, '/')
+    host = stripEnd(host, '/api/v1')
+    host = stripEnd(host, '/')
+    return host
+
 # -----------------------------------------------------------------------------------------
 # Main code
 # -----------------------------------------------------------------------------------------
-url = 'https://api.sparkpost.com/api/v1/ingest/events'
+
+host = hostCleanup(os.getenv('SPARKPOST_HOST', default='api.sparkpost.com'))
+url = host + '/api/v1/ingest/events'
+
 apiKey = os.getenv('SPARKPOST_API_KEY')
 if apiKey == None:
     print('Environment variable SPARKPOST_API_KEY not set - stopping.')
