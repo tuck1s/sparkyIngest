@@ -1,0 +1,56 @@
+Success events sequence
+fred.bloggs113939346071@ingest.thetucks.com
+Success events sequence - AMP
+fred.bloggs235890267776@ingest.thetucks.com
+Bounce events sequence
+fred.bloggs264859610950@ingest.thetucks.com
+Uploading 1180 bytes of gzip event data
+200 b'{"results":{"id":"9c016647-ee65-4544-be70-6659dfee21fe"}}'
+=> success 12 events
+
+Empty batch
+Uploading 20 bytes of gzip event data
+200 b'{"results":{"id":"ad693576-867a-4860-a02f-0b9422da955f"}}'
+=> Empty batch
+
+
+Empty NDJSON - should cause a validation error
+Uploading 23 bytes of gzip event data
+200 b'{"results":{"id":"4b0a7027-74eb-45d4-8382-e58309b1da0e"}}'
+=> Validation error
+
+Faulty GZIPping, should cause "decompression" error
+Uploading 4 bytes of gzip event data
+200 b'{"results":{"id":"f0a7fa24-aa59-4fce-8904-c77265997045"}}'
+=> Decompression error
+
+Duplicate batch - should cause error
+Uploading 1180 bytes of gzip event data
+200 b'{"results":{"id":"c5201652-a410-45bb-b46e-6c24f3fbd3a1"}}'
+=> Duplicate batch
+
+A couple of weird event types to make a validation error (some failures, some accepted)
+fred.bloggs232414608838@ingest.thetucks.com
+Uploading 779 bytes of gzip event data
+200 b'{"results":{"id":"4eb5ed67-4a2a-44b8-975a-7c3fbb62cd73"}}'
+=> Validation error, 3 accepted, 2 rejected
+
+OOB, spam complaint, delay, rejection events sequence
+fred.bloggs326564312594@ingest.thetucks.com
+fred.bloggs132274662532@ingest.thetucks.com
+fred.bloggs205696584695@ingest.thetucks.com
+fred.bloggs296559176816@ingest.thetucks.com
+fred.bloggs302024965973@ingest.thetucks.com
+fred.bloggs954839882439@ingest.thetucks.com
+Uploading 1381 bytes of gzip event data
+200 b'{"results":{"id":"c4dfa247-cd7f-4958-bfe6-bac3156c19c9"}}'
+=> success 11
+
+Unsubscribe events sequence
+fred.bloggs306375097560@ingest.thetucks.com
+Uploading 549 bytes of gzip event data
+200 b'{"results":{"id":"c046e850-b96a-476e-9063-91d6ec8fe555"}}'
+=> success 3
+
+
+ALL events have no RCPT address shown

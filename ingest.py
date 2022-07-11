@@ -2,7 +2,7 @@
 # A library of functions for creating SparkPost ingest events
 #
 
-import json, uuid
+import json, uuid, hashlib, base64
 
 # Returns SparkPost formatted unique event_id, which needs to be a decimal string 0 .. (2^63-1).
 # Python ints are arbitrary precision so we don't need to worry about arithmetic overflow
@@ -10,8 +10,29 @@ def uniq_event_id():
     u = uuid.uuid4().int  & 0x7fffffffffffffff # uuid4 gives us 128-bit random number, need to cut down to size
     return str(u)
 
+
+#
+# Returns a recipient hash string that SparkPost can accept
+def sha1_hash(s):
+    m = hashlib.sha1()
+    m.update(s.encode('utf-8'))
+    hash = m.digest()
+    b64hash_str = base64.b64encode(hash).decode('utf-8')
+    return b64hash_str
+
+
+# Function has side-effect on dict e
+def apply_privacy(e, privacy):
+    if privacy:
+        # Include hash field, otherwise causes ingest error "Missing rcpt_domain on event with rcpt_hash"
+        e['rcpt_hash'] = sha1_hash(e['rcpt_to'])
+        # but only when privacy is true - otherwise ingest error "Missing rcpt_hash on event with rcpt_domain"
+        e['rcpt_domain'] = e['rcpt_to'].split('@')[1]
+        del e['rcpt_to']
+
+
 # Note the ingest event type is "reception", the SparkPost event type is "injection"
-def make_injection_event(ts, msg_from, friendly_from, rcpt_to, uniq_msg_id, campaign_id, subject, sending_ip, recv_method='smtp'):
+def make_injection_event(ts, msg_from, friendly_from, rcpt_to, privacy, uniq_msg_id, campaign_id, subject, sending_ip, recv_method='smtp'):
     timestamp = ts.time()
     e = {
         'msys': {
@@ -39,11 +60,12 @@ def make_injection_event(ts, msg_from, friendly_from, rcpt_to, uniq_msg_id, camp
             }
         }
     }
+    apply_privacy(e['msys']['message_event'], privacy)
     return json.dumps(e, indent=None, separators=None) + '\n'
 
 
 # Note the ingest event type is "delivery", the SparkPost event type is "delivery"
-def make_delivery_event(ts, msg_from, friendly_from, rcpt_to, uniq_msg_id, campaign_id, subject, sending_ip):
+def make_delivery_event(ts, msg_from, friendly_from, rcpt_to, privacy, uniq_msg_id, campaign_id, subject, sending_ip):
     timestamp = ts.time()
     e = {
         'msys': {
@@ -71,11 +93,12 @@ def make_delivery_event(ts, msg_from, friendly_from, rcpt_to, uniq_msg_id, campa
             }
         }
     }
+    apply_privacy(e['msys']['message_event'], privacy)
     return json.dumps(e, indent=None, separators=None) + '\n'
 
 
 # Note the ingest event type is "initial_open", the SparkPost event type is "initial_open"
-def make_initial_open_event(ts, rcpt_to, uniq_msg_id, geo_ip, user_agent):
+def make_initial_open_event(ts, rcpt_to, privacy, uniq_msg_id, geo_ip, user_agent):
     timestamp = ts.time()
     e = {
         'msys': {
@@ -92,11 +115,12 @@ def make_initial_open_event(ts, rcpt_to, uniq_msg_id, geo_ip, user_agent):
             }
         }
     }
+    apply_privacy(e['msys']['track_event'], privacy)
     return json.dumps(e, indent=None, separators=None) + '\n'
 
 
 # Note the ingest event type is "open", the SparkPost event type is "open"
-def make_open_event(ts, rcpt_to, uniq_msg_id, geo_ip, user_agent):
+def make_open_event(ts, rcpt_to, privacy, uniq_msg_id, geo_ip, user_agent):
     timestamp = ts.time()
     e = {
         'msys': {
@@ -113,11 +137,12 @@ def make_open_event(ts, rcpt_to, uniq_msg_id, geo_ip, user_agent):
             }
         }
     }
+    apply_privacy(e['msys']['track_event'], privacy)
     return json.dumps(e, indent=None, separators=None) + '\n'
 
 
 # Note the ingest event type is "click", the SparkPost event type is "click"
-def make_click_event(ts, rcpt_to, uniq_msg_id, geo_ip, user_agent):
+def make_click_event(ts, rcpt_to, privacy, uniq_msg_id, geo_ip, user_agent):
     timestamp = ts.time()
     e = {
         'msys': {
@@ -135,11 +160,12 @@ def make_click_event(ts, rcpt_to, uniq_msg_id, geo_ip, user_agent):
             }
         }
     }
+    apply_privacy(e['msys']['track_event'], privacy)
     return json.dumps(e, indent=None, separators=None) + '\n'
 
 
 # Note the ingest event type is "amp_initial_open", the SparkPost event type is "amp_initial_open"
-def make_amp_initial_open_event(ts, rcpt_to, uniq_msg_id, geo_ip, user_agent):
+def make_amp_initial_open_event(ts, rcpt_to, privacy, uniq_msg_id, geo_ip, user_agent):
     timestamp = ts.time()
     e = {
         'msys': {
@@ -156,11 +182,12 @@ def make_amp_initial_open_event(ts, rcpt_to, uniq_msg_id, geo_ip, user_agent):
             }
         }
     }
+    apply_privacy(e['msys']['track_event'], privacy)
     return json.dumps(e, indent=None, separators=None) + '\n'
 
 
 # Note the ingest event type is "amp_open", the SparkPost event type is "amp_open"
-def make_amp_open_event(ts, rcpt_to, uniq_msg_id, geo_ip, user_agent):
+def make_amp_open_event(ts, rcpt_to, privacy, uniq_msg_id, geo_ip, user_agent):
     timestamp = ts.time()
     e = {
         'msys': {
@@ -177,11 +204,12 @@ def make_amp_open_event(ts, rcpt_to, uniq_msg_id, geo_ip, user_agent):
             }
         }
     }
+    apply_privacy(e['msys']['track_event'], privacy)
     return json.dumps(e, indent=None, separators=None) + '\n'
 
 
 # Note the ingest event type is "amp_click", the SparkPost event type is "amp_click"
-def make_amp_click_event(ts, rcpt_to, uniq_msg_id, geo_ip, user_agent):
+def make_amp_click_event(ts, rcpt_to, privacy, uniq_msg_id, geo_ip, user_agent):
     timestamp = ts.time()
     e = {
         'msys': {
@@ -199,11 +227,12 @@ def make_amp_click_event(ts, rcpt_to, uniq_msg_id, geo_ip, user_agent):
             }
         }
     }
+    apply_privacy(e['msys']['track_event'], privacy)
     return json.dumps(e, indent=None, separators=None) + '\n'
 
 
 # Note the ingest event type is "inband", the SparkPost event type is "bounce"
-def make_bounce_event(ts, msg_from, friendly_from, rcpt_to, uniq_msg_id, campaign_id, subject, sending_ip, bounce_code, bounce_reason, bounce_class, raw_reason):
+def make_bounce_event(ts, msg_from, friendly_from, rcpt_to, privacy, uniq_msg_id, campaign_id, subject, sending_ip, bounce_code, bounce_reason, bounce_class, raw_reason):
     timestamp = ts.time()
     e = {
         'msys': {
@@ -235,10 +264,11 @@ def make_bounce_event(ts, msg_from, friendly_from, rcpt_to, uniq_msg_id, campaig
             }
         }
     }
+    apply_privacy(e['msys']['message_event'], privacy)
     return json.dumps(e, indent=None, separators=None) + '\n'
 
 # Note the ingest event type is "outofband", the SparkPost events type is "out_of_band"
-def make_out_of_band_bounce_event(ts, msg_from, friendly_from, rcpt_to, uniq_msg_id, campaign_id, subject, sending_ip, bounce_code, bounce_reason, bounce_class, raw_reason):
+def make_out_of_band_bounce_event(ts, msg_from, friendly_from, rcpt_to, privacy, uniq_msg_id, campaign_id, subject, sending_ip, bounce_code, bounce_reason, bounce_class, raw_reason):
     timestamp = ts.time()
     e = {
         'msys': {
@@ -262,11 +292,12 @@ def make_out_of_band_bounce_event(ts, msg_from, friendly_from, rcpt_to, uniq_msg
             }
         }
     }
+    apply_privacy(e['msys']['message_event'], privacy)
     return json.dumps(e, indent=None, separators=None) + '\n'
 
 
 # Note the ingest event type is "feedback", the SparkPost event type is "spam_complaint"
-def make_spam_complaint_event(ts, msg_from, friendly_from, rcpt_to, uniq_msg_id, campaign_id, subject, sending_ip):
+def make_spam_complaint_event(ts, msg_from, friendly_from, rcpt_to, privacy, uniq_msg_id, campaign_id, subject, sending_ip):
     timestamp = ts.time()
     e = {
         'msys': {
@@ -287,11 +318,12 @@ def make_spam_complaint_event(ts, msg_from, friendly_from, rcpt_to, uniq_msg_id,
             }
         }
     }
+    apply_privacy(e['msys']['message_event'], privacy)
     return json.dumps(e, indent=None, separators=None) + '\n'
 
 
 # Note the ingest event type is "tempfail", the SparkPost event type is "delay"
-def make_delay_event(ts, msg_from, friendly_from, rcpt_to, uniq_msg_id, campaign_id, subject, sending_ip, bounce_code, bounce_reason, bounce_class, raw_reason):
+def make_delay_event(ts, msg_from, friendly_from, rcpt_to, privacy, uniq_msg_id, campaign_id, subject, sending_ip, bounce_code, bounce_reason, bounce_class, raw_reason):
     timestamp = ts.time()
     e = {
         'msys': {
@@ -317,7 +349,7 @@ def make_delay_event(ts, msg_from, friendly_from, rcpt_to, uniq_msg_id, campaign
                 'rcpt_to': rcpt_to,
                 'reason': bounce_reason,
                 'recv_method': 'smtp',
-                'routing_domain': rcpt_to.split('@')[1],
+                # 'routing_domain': rcpt_to.split('@')[1], appears not to be sent by PMTA
                 'sending_ip': sending_ip,
                 'subaccount_id': 0,
                 'subject': subject,
@@ -325,11 +357,12 @@ def make_delay_event(ts, msg_from, friendly_from, rcpt_to, uniq_msg_id, campaign
             }
         }
     }
+    apply_privacy(e['msys']['message_event'], privacy)
     return json.dumps(e, indent=None, separators=None) + '\n'
 
 
 # Note the ingest event type is "rejection", the SparkPost event type is "policy_rejection"
-def make_policy_rejection_event(ts, msg_from, friendly_from, rcpt_to, uniq_msg_id, campaign_id, subject, sending_ip, bounce_code, bounce_reason, bounce_class, raw_reason):
+def make_policy_rejection_event(ts, msg_from, friendly_from, rcpt_to, privacy, uniq_msg_id, campaign_id, subject, sending_ip, bounce_code, bounce_reason, bounce_class, raw_reason):
     timestamp = ts.time()
     e = {
         'msys': {
@@ -351,11 +384,12 @@ def make_policy_rejection_event(ts, msg_from, friendly_from, rcpt_to, uniq_msg_i
             }
         }
     }
+    apply_privacy(e['msys']['message_event'], privacy)
     return json.dumps(e, indent=None, separators=None) + '\n'
 
 
 # Note the ingest event type is "gen_rejection", the SparkPost event type is "generation_rejection"
-def make_generation_rejection_event(ts, msg_from, friendly_from, rcpt_to, uniq_msg_id, campaign_id, subject, sending_ip, bounce_code, bounce_reason, bounce_class, raw_reason):
+def make_generation_rejection_event(ts, msg_from, friendly_from, rcpt_to, privacy, uniq_msg_id, campaign_id, subject, sending_ip, bounce_code, bounce_reason, bounce_class, raw_reason):
     timestamp = ts.time()
     e = {
         'msys': {
@@ -380,11 +414,12 @@ def make_generation_rejection_event(ts, msg_from, friendly_from, rcpt_to, uniq_m
             }
         }
     }
+    apply_privacy(e['msys']['gen_event'], privacy)
     return json.dumps(e, indent=None, separators=None) + '\n'
 
 
 # Note the ingest event type is "gen_fail", the SparkPost event type is "generation_failure"
-def make_generation_failure_event(ts, msg_from, friendly_from, rcpt_to, uniq_msg_id, campaign_id, subject, sending_ip, bounce_code, bounce_reason, bounce_class, raw_reason):
+def make_generation_failure_event(ts, msg_from, friendly_from, rcpt_to, privacy, uniq_msg_id, campaign_id, subject, sending_ip, bounce_code, bounce_reason, bounce_class, raw_reason):
     timestamp = ts.time()
     e = {
         'msys': {
@@ -408,11 +443,12 @@ def make_generation_failure_event(ts, msg_from, friendly_from, rcpt_to, uniq_msg
             }
         }
     }
+    apply_privacy(e['msys']['gen_event'], privacy)
     return json.dumps(e, indent=None, separators=None) + '\n'
 
 
 # Note the ingest event type is "link", the SparkPost event type is "link_unsubscribe"
-def make_link_unsubscribe_event(ts, rcpt_to, uniq_msg_id, user_agent):
+def make_link_unsubscribe_event(ts, rcpt_to, privacy, uniq_msg_id, user_agent):
     timestamp = ts.time()
     e = {
         'msys': {
@@ -429,11 +465,12 @@ def make_link_unsubscribe_event(ts, rcpt_to, uniq_msg_id, user_agent):
             }
         }
     }
+    apply_privacy(e['msys']['unsubscribe_event'], privacy)
     return json.dumps(e, indent=None, separators=None) + '\n'
 
 
 # Note the ingest event type is "list", the SparkPost event type is "list_unsubscribe"
-def make_list_unsubscribe_event(ts, rcpt_to, uniq_msg_id, user_agent):
+def make_list_unsubscribe_event(ts, rcpt_to, privacy, uniq_msg_id, user_agent):
     timestamp = ts.time()
     e = {
         'msys': {
@@ -450,5 +487,5 @@ def make_list_unsubscribe_event(ts, rcpt_to, uniq_msg_id, user_agent):
             }
         }
     }
+    apply_privacy(e['msys']['unsubscribe_event'], privacy)
     return json.dumps(e, indent=None, separators=None) + '\n'
-
